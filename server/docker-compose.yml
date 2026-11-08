@@ -1,0 +1,14 @@
+services:
+  netplanner:
+    build: .
+    container_name: netplanner
+    restart: unless-stopped
+    # host networking lets the network scan read the ARP table (MAC addresses) of your LAN
+    network_mode: host
+    volumes:
+      - ./data:/data
+    environment:
+      NETPLANNER_PORT: "8770"
+      NETPLANNER_INTERVAL: "30"   # seconds between status checks
+    cap_add:
+      - NET_RAW                   # needed for ping

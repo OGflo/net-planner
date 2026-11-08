@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Net Planner</title>
+<!-- SheetJS: used only for .xlsx import/export. Bundled next to this file; falls back to the CDN. -->
+<script src="xlsx.full.min.js"></script>
+<script src="kb.js"></script>
+<script>window.XLSX||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>')</script>
+<style>
+:root{
+  --bg:#f4f6f9;--panel:#ffffff;--panel2:#eef1f5;--line:#d8dee6;--text:#18202b;--muted:#5d6b7c;
+  --accent:#0b7bd8;--accent-ink:#fff;--ok:#16a34a;--bad:#dc2626;--warn:#d97706;--info:#7c3aed;
+  --rack:#2a313b;--rack-slot:#3a4350;--rack-line:#4a5462;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1319;--panel:#151c24;--panel2:#1c2530;--line:#2a3542;--text:#e3e9f0;--muted:#8d9bab;
+  --accent:#3aa0ff;--accent-ink:#04121f;--ok:#22c55e;--bad:#f05252;--warn:#f59e0b;--info:#a78bfa;
+  --rack:#0a0e13;--rack-slot:#1a222c;--rack-line:#26303c;--shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --bg:#0e1319;--panel:#151c24;--panel2:#1c2530;--line:#2a3542;--text:#e3e9f0;--muted:#8d9bab;
+  --accent:#3aa0ff;--accent-ink:#04121f;--ok:#22c55e;--bad:#f05252;--warn:#f59e0b;--info:#a78bfa;
+  --rack:#0a0e13;--rack-slot:#1a222c;--rack-line:#26303c;--shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:8px 16px;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand svg{color:var(--accent)}
+nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+nav button{background:none;border:0;color:var(--muted);padding:7px 11px;border-radius:7px;cursor:pointer;font:inherit}
+nav button:hover{background:var(--panel2);color:var(--text)}
+nav button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+main{padding:16px;max-width:1500px;margin:0 auto}
+h2{margin:4px 0 12px;font-size:20px}
+h3{margin:0 0 8px;font-size:15px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.tile b{display:block;font-size:24px;line-height:1.1}
+.tile span{color:var(--muted);font-size:12px}
+.bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+button.btn,label.btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:6px 11px;border-radius:7px;cursor:pointer;font:inherit;display:inline-flex;align-items:center;gap:6px}
+button.btn:hover,label.btn:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad)}
+button.icon{padding:3px 7px;font-size:12px}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+textarea{min-height:60px;resize:vertical}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:var(--panel2);font-weight:600;position:sticky;top:0;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+tr:hover td{background:var(--panel2)}
+td.notes{white-space:normal;max-width:260px;color:var(--muted)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;background:var(--panel2);border:1px solid var(--line)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--line);margin-right:6px;vertical-align:middle}
+.dot.s-up{background:var(--ok)}.dot.s-down{background:var(--bad)}.dot.s-refused{background:var(--warn)}
+.issues li{margin:4px 0}
+.issues .bad{color:var(--bad)}.issues .warn{color:var(--warn)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+/* racks */
+.racks{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.rack{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;width:300px;box-shadow:var(--shadow)}
+.rack-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.rack-head b{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rack-head .muted{white-space:nowrap}
+.rack-body{background:var(--rack);border-radius:6px;padding:6px 6px 6px 0;display:grid;grid-template-columns:30px 1fr;--u:20px;column-gap:4px}
+.ru-num{grid-column:1;font:10px/var(--u) var(--mono);color:#7d8a99;text-align:right;padding-right:2px}
+.ru-slot{grid-column:2;height:var(--u);border-bottom:1px dashed var(--rack-line);background:var(--rack-slot);cursor:pointer}
+.ru-slot:hover,.ru-slot.over{background:color-mix(in srgb,var(--accent) 35%,var(--rack-slot))}
+.ru-dev{grid-column:2;z-index:2;margin:1px 0;border-radius:3px;padding:0 6px;font-size:11.5px;color:#fff;display:flex;align-items:center;gap:6px;overflow:hidden;cursor:grab;border-left:4px solid rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.ru-dev b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.ru-dev small{opacity:.8;font-family:var(--mono);font-size:10px}
+.t-server{background:#2563eb}.t-switch{background:#059669}.t-router{background:#0d9488}.t-firewall{background:#dc2626}
+.t-storage{background:#7c3aed}.t-pdu,.t-ups{background:#a16207}.t-patch-panel{background:#475569}.t-other{background:#64748b}
+.tray{display:flex;gap:6px;flex-wrap:wrap;min-height:36px;padding:8px;border:1px dashed var(--line);border-radius:8px}
+.tray.over{border-color:var(--accent)}
+.chip{color:#fff;border-radius:6px;padding:4px 9px;font-size:12px;cursor:grab}
+/* ports */
+.faceplate{background:var(--rack);border-radius:8px;padding:12px;overflow-x:auto}
+.prow{display:flex;gap:4px;margin:3px 0}
+.port{width:34px;height:30px;flex:0 0 34px;border-radius:4px;border:2px solid #556070;background:#1f2731;color:#c9d3de;font:600 10.5px var(--mono);cursor:pointer;position:relative;padding:0}
+.port.m-access{background:var(--vc);border-color:var(--vc);color:#fff}
+.port.m-trunk{background:repeating-linear-gradient(135deg,#7c3aed 0 5px,#5b21b6 5px 10px);border-color:#a78bfa;color:#fff}
+.port.m-disabled{background:#2b2f35;border-color:#3b4047;color:#6b7280;text-decoration:line-through}
+.port.linked::after{content:"";position:absolute;right:2px;top:2px;width:6px;height:6px;border-radius:50%;background:#facc15}
+.port:hover{outline:2px solid #fff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
+pre.cfg{background:var(--rack);color:#d6e2ee;padding:14px;border-radius:8px;overflow:auto;max-height:70vh;font:12.5px/1.5 var(--mono);margin:0}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(5,10,15,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow:auto}
+.modal.hidden{display:none}
+.modal-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.fld.wide{grid-column:1/-1}
+.fld input,.fld select,.fld textarea{font-size:14px}
+.err{color:var(--bad);margin-top:8px;min-height:1em}
+.mact{position:sticky;bottom:-18px;background:var(--panel);padding:10px 0 4px;margin-bottom:-4px;border-top:1px solid var(--line);z-index:2}
+.mact .btn{padding:9px 16px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90vw}
+#toast.show{opacity:1}
+#sync{font-size:12px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:5px}
+#sync .dot{margin:0}
+.inbox-item{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)}
+.inbox-item:last-child{border-bottom:0}
+.banner{background:color-mix(in srgb,var(--accent) 14%,var(--panel));border:1px solid var(--accent);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+body.dropping::after{content:"Drop a .netplan, .xlsx or .csv file to import";position:fixed;inset:12px;border:3px dashed var(--accent);border-radius:16px;background:color-mix(in srgb,var(--bg) 80%,transparent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;z-index:70;pointer-events:none}
+@media (max-width:640px){
+  .form{grid-template-columns:1fr}.rack{width:100%}main{padding:12px}
+  header{padding:6px 10px;gap:8px}
+  nav{order:3;flex:1 0 100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{white-space:nowrap}
+  .brand{flex:1}
+  input,select,textarea{font-size:16px}
+}
+
+/* live status lamps (same look as NetMap) */
+.lamp{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none;background:var(--line);vertical-align:middle}
+.lamp.up{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+.lamp.down{background:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 25%,transparent);animation:blink 1.2s ease-in-out infinite}
+.lamp.off{background:var(--muted);opacity:.6}
+.lamp.none{background:transparent;border:1.5px solid var(--muted)}
+.lamp.pending{background:var(--line)}
+@keyframes blink{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.lamp.down{animation:none}}
+.pill.bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);border-color:var(--ok)}
+.kbsug{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.kbsug:empty{display:none}
+.sugg{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+.sugg:hover{border-color:var(--accent)}
+.hintline{font-size:12px;color:var(--muted);min-height:1em}
+.t-ap{background:#0891b2}.t-camera{background:#be185d}.t-iot{background:#d97706}.t-pc{background:#4b5563}.t-phone{background:#6b7280}.t-internet{background:#0f766e}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.stat{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer}
+.stat.down{border-color:var(--bad)}
+.stat b{display:block;font-size:13.5px}
+.stat span{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+/* map */
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;height:calc(100vh - 170px);min-height:420px}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:none}
+.stage svg{width:100%;height:100%;display:block;cursor:grab}
+.stage .mapbar{position:absolute;left:10px;bottom:10px;display:flex;gap:4px;flex-wrap:wrap}
+.stage .maphint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:6px 12px;border-radius:7px;font-size:13px;white-space:nowrap}
+.mside{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
+.mnode .card{fill:var(--panel2);stroke:var(--line);stroke-width:1.2}
+.mnode.sel .card{stroke:var(--accent);stroke-width:2.4}
+.mnode.isdown .card{stroke:var(--bad);stroke-width:1.8}
+.mnode .nn{font-size:13px;font-weight:600;fill:var(--text)}
+.mnode .ns{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+.mnode{cursor:pointer}
+.mlink .w{fill:none;stroke-linecap:round}
+.mlink .hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer}
+.mlink.ldown .w{stroke:var(--bad)!important;opacity:.75}
+.mled.up{fill:var(--ok)}.mled.down{fill:var(--bad)}.mled.off{fill:var(--muted)}.mled.none{fill:var(--panel);stroke:var(--muted);stroke-width:1.5}.mled.pending{fill:var(--line)}
+@media (max-width:900px){.mapwrap{grid-template-columns:1fr;height:auto}.stage{height:60vh}}
+/* field mode (iPhone at the rack) */
+body.field header{display:none}
+body.field main{padding:0;max-width:none}
+.fwrap{min-height:100vh;padding:calc(env(safe-area-inset-top) + 8px) 14px calc(env(safe-area-inset-bottom) + 84px)}
+.ftop{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ftop h1{font-size:22px;margin:0;flex:1}
+#fsync{font-size:12px;color:var(--muted);display:flex;gap:5px;align-items:center}
+.fbar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px);z-index:30}
+.fbar button{background:none;border:0;color:var(--muted);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;cursor:pointer}
+.fbar button i{font-style:normal;font-size:21px;line-height:1}
+nav.fbar button{border-radius:0;padding:4px 0;flex-direction:column}
+nav.fbar button.on{background:none;color:var(--accent);font-weight:600}
+.bigbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border-radius:14px;border:0;background:var(--accent);color:var(--accent-ink);font:600 18px system-ui;cursor:pointer;margin-bottom:10px}
+.bigbtn.alt{background:var(--panel2);color:var(--text);border:1px solid var(--line);font-size:16px;padding:14px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.fcard h3{margin:0 0 6px}
+.flist .fi{display:flex;gap:10px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.flist .fi:last-child{border-bottom:0}
+.flist .fi b{display:block;font-size:15px}
+.flist .fi span{font-size:12px;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chipbtn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:99px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chipbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.frack .rack-body{--u:30px}
+.frack .ru-dev{font-size:13px}
+.helpwrap{max-width:820px}
+details.help{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+details.help summary{cursor:pointer;padding:13px 14px;font-weight:600;font-size:15px;list-style:none;display:flex;align-items:center;gap:8px}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary::after{content:"›";margin-left:auto;color:var(--muted);font-size:20px;transition:transform .15s}
+details.help[open] summary::after{transform:rotate(90deg)}
+details.help .hb{padding:0 16px 12px;line-height:1.55;font-size:14px}
+details.help .hb ol,details.help .hb ul{padding-left:20px;margin:6px 0}
+details.help .hb li{margin:5px 0}
+details.help dt{font-weight:600;margin-top:10px}
+details.help dd{margin:2px 0 0;color:var(--muted)}
+/* iPhone Duo: two panes when open, cover-screen tools when closed */
+.fwrap.duo{padding-bottom:calc(env(safe-area-inset-bottom) + 76px)}
+.duopanes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start}
+.duoL,.duoR{max-height:calc(100vh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;-webkit-overflow-scrolling:touch;padding-right:2px}
+.duoR .frack .rack{width:100%}
+.flist .fi.selrow{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:8px}
+.foldcard{display:flex;gap:12px;align-items:center;border:2px dashed var(--accent);border-radius:14px;padding:16px;margin-bottom:10px;background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
+.foldicon{font-size:30px;color:var(--accent)}
+.cwrap{padding-bottom:calc(env(safe-area-inset-bottom) + 16px)}
+.cseg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:12px}
+.cseg button{border:0;background:none;color:var(--muted);font:600 15px system-ui;padding:11px 6px;border-radius:9px;cursor:pointer}
+.cseg button.on{background:var(--accent);color:var(--accent-ink)}
+.bigbtn.huge{padding:34px 18px;font-size:22px}
+.glance{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.gnum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 6px;text-align:center}
+.gnum b{display:block;font-size:40px;line-height:1.05}
+.gnum span{font-size:13px;color:var(--muted)}
+.gnum.up b{color:var(--ok)}.gnum.down{border-color:var(--bad)}.gnum.down b{color:var(--bad)}
+.allgood{text-align:center;font-size:18px;font-weight:600;color:var(--ok);padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.center{text-align:center}
+.fsearch{width:100%;font-size:17px;padding:12px 14px;border-radius:12px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="15" width="18" height="6" rx="1"/><path d="M7 6h.01M7 18h.01M12 9v6"/></svg>
+    Net Planner
+  </div>
+  <nav id="nav"></nav>
+  <span id="sync"></span>
+  <button class="btn icon" data-act="mode" data-mode="field" id="fieldBtn" hidden title="Big-button field mode for working at the rack">📱 Field</button>
+  <button class="btn icon" data-act="netplan" title="Export the whole plan as a .netplan file">⇪ Export</button>
+  <button class="btn icon" data-act="theme" title="Toggle theme" id="themeBtn">◐</button>
+</header>
+<main id="view"></main>
+<div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+<div id="toast"></div>
+
+<script>
+/* ============ state ============ */
+const LS='netplanner.v1', LSUI='netplanner.ui';
+const uid=()=>Math.random().toString(36).slice(2,10);
+const COLL=['racks','devices','vms','vlans','ports','links','storage'];
+const blank=()=>({racks:[],devices:[],vms:[],vlans:[],ports:[],links:[],storage:[],ping:{}});
+/* NATIVE = inside the Net Planner app (iPhone, iPad or Mac). SV = sync with the Net Planner server. */
+const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.native);
+const PLATFORM=window.NATIVE_PLATFORM||'web';            // phone | pad | mac | web
+const CLIENT=window.NATIVE_DEVICE||(PLATFORM==='web'?'Browser':PLATFORM==='mac'?'Mac':PLATFORM==='pad'?'iPad':'iPhone');
+const SV={mode:false,linked:false,updated:null,base:null,inbox:[],tokenRequired:false,pending:false,dirty:false,err:'',deferred:false};
+let LIVE={items:{},ext:{},integrations:{},checked:0};
+let FEED=[];
+let S=bootState();
+let UI=Object.assign({tab:'dash',mode:'',q:{},portSw:'',cfgSw:'',cfg:{allVlans:false,shutUnused:true,portfast:true,domain:''},svUrl:'',svToken:'',live:false,link:null,integrations:[],field:{}},bootUI());
+function load(k,d){try{const j=JSON.parse(localStorage.getItem(k));if(j)return Object.assign(d,j)}catch(e){}return d}
+function bootState(){
+  // In the app, the plan file in Documents is the source of truth (it's written on every change).
+  if(NATIVE&&window.NATIVE_BOOT){try{return Object.assign(blank(),parsePlan(b64text(window.NATIVE_BOOT)))}catch(e){}}
+  return Object.assign(blank(),load(LS,{}));
+}
+function bootUI(){
+  if(NATIVE&&window.NATIVE_UI){try{return JSON.parse(b64text(window.NATIVE_UI))}catch(e){}}
+  return load(LSUI,{});
+}
+let nativeTimer,uiTimer;
+function save(){
+  try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+  saveUI();
+  if(NATIVE){clearTimeout(nativeTimer);nativeTimer=setTimeout(()=>window.webkit.messageHandlers.native.postMessage({action:'persist',data:JSON.stringify(netplanDoc())}),400)}
+  if(SV.linked){SV.dirty=true;scheduleServerSave()}
+}
+function saveUI(){
+  try{localStorage.setItem(LSUI,JSON.stringify(UI))}catch(e){}
+  if(NATIVE){clearTimeout(uiTimer);uiTimer=setTimeout(()=>window.webkit.messageHandlers.native.postMessage({action:'persistUI',data:JSON.stringify(UI)}),300)}
+}
+function b64bytes(b64){return Uint8Array.from(atob(b64),c=>c.charCodeAt(0))}
+function b64text(b64){return new TextDecoder().decode(b64bytes(b64))}
+/* who changed what: lets the Mac show what the iPhone just added */
+function touch(it){if(it){it.by=CLIENT;it.at=Date.now()}return it}
+
+/* ============ .netplan file format ============ */
+const SOURCE=()=>NATIVE?(PLATFORM==='mac'?'mac-app':'ios-app'):SV.mode?'server':'browser';
+function netplanDoc(label){return{format:'netplanner',version:2,exported:new Date().toISOString(),source:SOURCE(),client:CLIENT,label:label||'',
+  counts:{racks:S.racks.length,devices:S.devices.length,vms:S.vms.length,vlans:S.vlans.length,ports:S.ports.length},data:S}}
+function parsePlan(text){
+  const j=typeof text==='string'?JSON.parse(text):text;
+  if(j&&j.format==='netplanner'&&j.data)return Object.assign(blank(),j.data);
+  if(j&&Array.isArray(j.devices)&&Array.isArray(j.racks))return Object.assign(blank(),j); // older .json backups
+  throw new Error('Not a Net Planner file');
+}
+function exportNetplan(){
+  const d=new Date();const stamp=d.toISOString().slice(0,10)+'-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
+  saveFile(`net-plan-${stamp}.netplan`,JSON.stringify(netplanDoc(),null,1),'application/x-netplan+json');
+}
+/* Ask whether to replace or merge an incoming plan. */
+function askApply(data,label,after){
+  const inc=Object.assign(blank(),data);
+  const c=k=>inc[k].length;
+  openModal(`<h3>Open plan${label?': '+esc(label):''}</h3>
+    <p>${c('racks')} racks · ${c('devices')} devices · ${c('vms')} VMs · ${c('vlans')} VLANs · ${c('ports')} ports</p>
+    <p class="muted small"><b>Merge</b> adds new items and updates ones with the same name (VLAN ID for VLANs, switch + port for ports). <b>Replace</b> swaps your current plan for this one${SV.linked?' (the server keeps a history copy)':''}.</p>
+    <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="btn" data-act="close">Cancel</button>
+    <button class="btn" id="apMerge">Merge</button><button class="btn pri" id="apReplace">Replace</button></div>`);
+  $('#apMerge').onclick=()=>{closeModal();applyPlan(inc,'merge');after&&after()};
+  $('#apReplace').onclick=()=>{closeModal();applyPlan(inc,'replace');after&&after()};
+}
+function applyPlan(inc,mode){
+  if(mode==='replace'){S=Object.assign(blank(),inc);commit();toast('Plan replaced');return}
+  const cur=S;S=Object.assign(blank(),inc);const sheets={};SHEETS.forEach(k=>sheets[k]=toRows(k));S=cur;
+  Object.assign(S.ping,inc.ping||{});importSheets(sheets,false);
+}
+/* Called by the app when a file is opened from Files / AirDrop / Mail. */
+window.netplannerOpenBase64=(b64,name)=>openBytes(name||'file.netplan',b64bytes(b64));
+async function openBytes(name,bytes){
+  try{
+    if(/\.(netplan|json)$/i.test(name)){
+      const j=JSON.parse(new TextDecoder().decode(bytes));
+      if(j&&Array.isArray(j.nodes)&&Array.isArray(j.links)){importNetmap(j);return}
+      askApply(parsePlan(j),name);return}
+    if(/\.(xlsx|xls)$/i.test(name)){if(!needXLSX())return;importWorkbook(XLSX.read(bytes),$('#impReplace')?.checked);return}
+    if(/\.(csv|tsv)$/i.test(name)){let txt=new TextDecoder().decode(bytes);if(/\.tsv$/i.test(name))txt=txt.split(/\r?\n/).map(l=>l.split('\t').map(csvCell).join(',')).join('\n');
+      const rows=parseCSV(txt);const h=Object.keys(rows[0]||{}).map(x=>x.toLowerCase());
+      if(h.includes('ip')&&h.includes('status')&&!h.includes('type')){importPing(rows);return}
+      const target=$('#csvTarget')?.value;if(!target){toast('Open Import / Export to choose which table this CSV goes into');UI.tab='io';UI.mode='full';render();return}
+      if(target==='ping'){importPing(rows);return}
+      if($('#impReplace')?.checked){S[target]=[];if(target==='devices')S.ports=[]}
+      const n=fromRows(target,rows);commit();toast(`Imported ${n} row(s) into ${SCHEMA[target].title}`);return}
+    toast('Unsupported file: '+name);
+  }catch(e){toast(e.message||'Could not read that file')}
+}
+
+/* ============ live sync with the server ============
+   Every device keeps the last version it synced ("base"). When two devices edit at once,
+   the server says "conflict" and hands back its copy; we merge item by item:
+   whatever you changed since the base wins, everything else comes from the server. */
+function merge3(base,local,remote){
+  const out=Object.assign(blank(),remote);
+  for(const k of COLL){
+    const B=new Map((base&&base[k]||[]).map(x=>[x.id,JSON.stringify(x)]));
+    const L=new Map((local[k]||[]).map(x=>[x.id,x]));
+    const R=new Map((remote[k]||[]).map(x=>[x.id,x]));
+    const res=[];const seen=new Set();
+    const take=id=>{if(seen.has(id))return;seen.add(id);const b=B.get(id),l=L.get(id),r=R.get(id);
+      const localChanged=l?JSON.stringify(l)!==b:b!==undefined;
+      if(localChanged){if(l)res.push(l)}else if(r)res.push(r)};
+    (remote[k]||[]).forEach(x=>take(x.id));(local[k]||[]).forEach(x=>take(x.id));B.forEach((_,id)=>take(id));
+    out[k]=res;
+  }
+  out.ping=Object.assign({},remote.ping||{},local.ping||{});
+  return out;
+}
+const snap=d=>JSON.parse(JSON.stringify(d));
+const svBase=()=>SV.mode?'':String(UI.svUrl||'').trim().replace(/\/+$/,'').replace(/^(?!https?:\/\/)(?=.)/,'http://');
+async function api(path,opt={},base=svBase()){
+  const h={'Content-Type':'application/json','X-NetPlanner-Client':CLIENT};if(UI.svToken)h['X-NetPlanner-Token']=UI.svToken;
+  const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),opt.timeout||15000);
+  try{
+    const r=await fetch(base+path,{method:opt.method||'GET',body:opt.body,headers:h,signal:ctl.signal,cache:'no-store'});
+    const ct=r.headers.get('content-type')||'';const body=ct.includes('json')?await r.json():await r.text();
+    if(!r.ok){const e=new Error((body&&body.error)||('HTTP '+r.status));e.status=r.status;e.body=body;throw e}return body;
+  }catch(e){if(e.name==='AbortError')throw new Error('Server did not answer');throw e}finally{clearTimeout(tm)}
+}
+function setSync(){
+  const el=$('#sync');if(!el)return;
+  const down=Object.values(LIVE.items).filter(x=>x.state==='down').length+Object.values(LIVE.ext).filter(x=>x.state==='down').length;
+  let h;
+  if(SV.linked)h=`<i class="dot ${SV.err?'s-down':'s-up'}"></i>${SV.err?'Sync problem':SV.pending?'Saving…':SV.mode?'Live on server':'Live with server'}`;
+  else if(NATIVE)h='<i class="dot s-up"></i>On this device';
+  else h='<i class="dot"></i>This browser only';
+  if(down)h+=` <span class="pill bad">${down} down</span>`;
+  el.innerHTML=h;el.title=SV.err||'';
+  document.title=(down?`(${down} down) `:'')+'Net Planner';
+  const f=document.getElementById('fsync');if(f)f.innerHTML=h;
+}
+let svTimer;
+function scheduleServerSave(){if(!SV.linked)return;SV.pending=true;setSync();clearTimeout(svTimer);svTimer=setTimeout(pushState,600)}
+async function pushState(tries=0){
+  clearTimeout(svTimer);
+  try{
+    const sent=snap(S);
+    const r=await api('/api/state',{method:'PUT',body:JSON.stringify(Object.assign(netplanDoc(),{baseUpdated:SV.updated}))});
+    SV.updated=r.updated;SV.base=sent;SV.err='';SV.dirty=JSON.stringify(S)!==JSON.stringify(sent);rememberLink();
+    if(SV.dirty)return scheduleServerSave();
+  }catch(e){
+    if(e.status===409&&e.body&&tries<4){
+      const remote=Object.assign(blank(),e.body.data||{});
+      noteRemoteChanges(SV.base,remote);
+      S=merge3(SV.base,S,remote);SV.base=snap(remote);SV.updated=e.body.updated;
+      try{localStorage.setItem(LS,JSON.stringify(S))}catch(_){}
+      softRender();return pushState(tries+1);
+    }
+    SV.err='Could not save to server: '+e.message;
+  }
+  SV.pending=false;setSync();
+}
+function rememberLink(){if(!SV.mode){UI.link={url:svBase(),updated:SV.updated,base:SV.base};saveUI()}}
+/* re-render unless the user is typing or has a form open */
+function softRender(){
+  const a=document.activeElement;
+  if(!$('#modal').classList.contains('hidden')||(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.closest('#view'))){SV.deferred=true;return}
+  SV.deferred=false;render();
+}
+/* tell the user what other devices did */
+function noteRemoteChanges(base,remote){
+  if(!base)return;
+  const fresh=[];
+  for(const k of ['devices','vms','racks','ports','storage']){
+    const B=new Map((base[k]||[]).map(x=>[x.id,JSON.stringify(x)]));
+    (remote[k]||[]).forEach(x=>{if(x.by&&x.by!==CLIENT&&B.get(x.id)!==JSON.stringify(x))fresh.push({kind:k,id:x.id,name:x.name||(k==='ports'?'port '+x.port:''),by:x.by,at:x.at||Date.now(),added:!B.has(x.id)})});
+  }
+  if(!fresh.length)return;
+  FEED=[...fresh,...FEED].slice(0,40);
+  const f=fresh[0];
+  toast(`${fresh[0].by}: ${f.added?'added':'updated'} ${f.name}${fresh.length>1?` +${fresh.length-1} more`:''}`);
+}
+async function pullState(){
+  const st=await api('/api/state');
+  if(!st.data)return false;
+  const remote=Object.assign(blank(),st.data);
+  noteRemoteChanges(SV.base,remote);
+  if(SV.dirty&&SV.base){S=merge3(SV.base,S,remote)}else S=remote;
+  SV.base=snap(remote);SV.updated=st.updated;
+  try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+  if(NATIVE)window.webkit.messageHandlers.native.postMessage({action:'persist',data:JSON.stringify(netplanDoc())});
+  rememberLink();
+  if(SV.dirty)scheduleServerSave();
+  return true;
+}
+let pollTimer=null,statusTimer=null;
+function startPolling(){
+  clearInterval(pollTimer);clearInterval(statusTimer);
+  pollTimer=setInterval(pollServer,SV.mode?5000:4000);
+  statusTimer=setInterval(pollStatus,10000);pollStatus();
+}
+async function detectServer(){
+  if(NATIVE||!/^https?:$/.test(location.protocol))return false;
+  let h;try{h=await api('/api/health',{timeout:4000},'')}catch(e){return false}
+  if(!h||h.app!=='netplanner')return false;
+  SV.mode=true;SV.linked=true;SV.tokenRequired=h.tokenRequired;SV.features=h.features||[];
+  if(h.tokenRequired&&!UI.svToken){UI.svToken=prompt('This Net Planner server needs its access token (see config.json on the server):')||'';saveUI()}
+  try{
+    if(!(await pullState())&&(S.devices.length||S.racks.length)){SV.dirty=true;await pushState()}
+  }catch(e){SV.err=e.message}
+  await refreshInbox();render();startPolling();
+  return true;
+}
+/* The apps link to the server when you turn on Live sync (the Mac app finds a local server by itself). */
+async function startLink(firstTime){
+  if(SV.mode||!svBase())return;
+  let h;try{h=await api('/api/health',{timeout:5000})}catch(e){SV.err='Server unreachable: '+e.message;setSync();if(firstTime)toast(SV.err);setTimeout(()=>UI.live&&!SV.linked&&startLink(false),15000);return}
+  if(h.app!=='netplanner'){toast('That address is not a Net Planner server');return}
+  SV.features=h.features||[];
+  const resume=UI.link&&UI.link.url===svBase()&&UI.link.base;
+  try{
+    const st=await api('/api/state');
+    const remote=Object.assign(blank(),st.data||{});
+    const localHas=S.devices.length||S.racks.length;
+    if(resume){
+      SV.base=UI.link.base;SV.updated=UI.link.updated;
+      const localChanged=JSON.stringify(S)!==JSON.stringify(SV.base);
+      noteRemoteChanges(SV.base,remote);
+      S=st.data?merge3(SV.base,S,remote):S;SV.base=snap(remote);SV.updated=st.updated;SV.dirty=localChanged||!st.data;
+    }else if(!st.data){SV.dirty=true}
+    else if(!localHas){S=remote;SV.base=snap(remote);SV.updated=st.updated}
+    else{
+      const choice=await chooseFirstLink(remote);
+      if(choice==='cancel'){UI.live=false;saveUI();render();return}
+      if(choice==='server'){S=remote}
+      else if(choice==='merge'){const cur=S;S=remote;applyPlanSilently(cur)}
+      SV.base=snap(remote);SV.updated=st.updated;SV.dirty=choice!=='server';
+    }
+    SV.linked=true;SV.err='';rememberLink();
+    if(SV.dirty)await pushState();
+    await refreshInbox();render();startPolling();
+    if(firstTime)toast('Live sync is on');
+  }catch(e){SV.err=e.message;setSync();toast('Could not link: '+e.message)}
+}
+function applyPlanSilently(inc){const cur=S;S=Object.assign(blank(),inc);const sheets={};SHEETS.forEach(k=>sheets[k]=toRows(k));S=cur;SHEETS.forEach(k=>sheets[k]&&sheets[k].length&&fromRows(k,sheets[k]));Object.assign(S.ping,inc.ping||{})}
+function chooseFirstLink(remote){
+  return new Promise(res=>{
+    const c=k=>(remote[k]||[]).length;
+    openModal(`<h3>Link to the server</h3>
+      <p>The server already has a plan (${c('devices')} devices, ${c('racks')} racks) and so does this ${esc(CLIENT)} (${S.devices.length} devices, ${S.racks.length} racks).</p>
+      <p class="muted small"><b>Use server plan</b> is best when the Mac is your main planner. <b>Merge</b> adds anything new from this device by name.</p>
+      <div class="row" style="margin-top:12px"><button class="btn" id="flCancel">Cancel</button><span class="spacer"></span><button class="btn" id="flMerge">Merge</button><button class="btn pri" id="flServer">Use server plan</button></div>`);
+    $('#flCancel').onclick=()=>{closeModal();res('cancel')};$('#flMerge').onclick=()=>{closeModal();res('merge')};$('#flServer').onclick=()=>{closeModal();res('server')};
+  });
+}
+function stopLink(){SV.linked=false;clearInterval(pollTimer);clearInterval(statusTimer);UI.live=false;saveUI();setSync();render()}
+async function pollServer(){
+  if(!SV.linked||SV.pending)return;
+  try{
+    const h=await api('/api/health',{timeout:5000});
+    if(h.updated&&h.updated!==SV.updated){if(await pullState())softRender()}
+    const before=SV.inbox.length;await refreshInbox();if(SV.inbox.length>before){softRender();toast('New plan received in the inbox')}
+    if(SV.err){SV.err='';setSync()}
+  }catch(e){SV.err='Server unreachable';setSync()}
+}
+async function pollStatus(){
+  if(!SV.linked)return;
+  try{LIVE=await api('/api/status',{timeout:8000});paintLamps();setSync()}catch(e){}
+}
+async function refreshInbox(){try{SV.inbox=await api('/api/inbox')}catch(e){SV.inbox=[]}}
+async function remoteAct(kind){
+  if(!svBase()){toast('Enter the server address first');return}
+  try{
+    if(kind==='test'){const h=await api('/api/health',{timeout:5000});if(h.app!=='netplanner')throw new Error('That is not a Net Planner server');toast(`Connected to ${h.name||'Net Planner server'} ${h.version||''}${h.updated?' · plan saved '+new Date(h.updated).toLocaleString():''}`)}
+    if(kind==='live'){UI.live=true;saveUI();await startLink(true)}
+    if(kind==='unlink'){stopLink();toast('Live sync is off. Your plan stays on this device.')}
+    if(kind==='send'){const label=(prompt('Label for this upload (optional):',CLIENT+' '+new Date().toLocaleString())??null);if(label===null)return;
+      await api('/api/inbox',{method:'POST',body:JSON.stringify(netplanDoc(label))});toast('Sent to the server inbox')}
+    if(kind==='deploy'){if(!confirm('Deploy: replace the live plan on the server with this one? The server keeps a history copy of the old plan.'))return;
+      const r=await api('/api/state',{method:'PUT',body:JSON.stringify(Object.assign(netplanDoc('deployed'),{force:true}))});SV.updated=r.updated;SV.base=snap(S);rememberLink();toast('Deployed to the server')}
+    if(kind==='pull'){const st=await api('/api/state');if(!st.data){toast('The server has no plan yet');return}askApply(st.data,'from server')}
+  }catch(e){toast(e.message)}
+}
+async function inboxAct(act,id){
+  try{
+    if(act==='open'){const doc=await api('/api/inbox/'+encodeURIComponent(id));const it=SV.inbox.find(x=>x.id===id);
+      askApply(parsePlan(doc),it?.label||it?.id,async()=>{if(confirm('Remove it from the inbox now?')){await api('/api/inbox/'+encodeURIComponent(id),{method:'DELETE'});await refreshInbox();render()}})}
+    if(act==='dl'){const doc=await api('/api/inbox/'+encodeURIComponent(id));saveFile(id+'.netplan',JSON.stringify(doc,null,1),'application/x-netplan+json')}
+    if(act==='del'){if(!confirm('Delete this upload from the inbox?'))return;await api('/api/inbox/'+encodeURIComponent(id),{method:'DELETE'});await refreshInbox();render()}
+  }catch(e){toast(e.message)}
+}
+
+/* ============ live status lamps ============ */
+function liveOf(it){
+  if(!it)return null;
+  if(it.extId&&LIVE.ext&&LIVE.ext[it.extId])return LIVE.ext[it.extId];
+  if(LIVE.items&&LIVE.items[it.id])return LIVE.items[it.id];
+  const ip=String(it.mgmtIp||it.ip||'').trim();const p=ip&&S.ping[ip];
+  if(p)return {state:p.status==='refused'?'up':p.status,ms:p.ms,detail:`${p.method||'check'} · ${p.checked||''}`};
+  if(it.check==='none')return {state:'none',detail:'not checked'};
+  if(!ip&&!it.extId)return {state:'none',detail:'no IP'};
+  return null;
+}
+function lampText(l){if(!l)return 'not checked yet';const ago=l.since?` · since ${new Date(l.since*1000).toLocaleTimeString()}`:'';return `${l.state}${l.ms?' · '+l.ms+' ms':''}${l.detail?' · '+l.detail:''}${ago}`}
+function lamp(it){const l=liveOf(it);return `<i class="lamp ${l?l.state:'pending'}" data-lamp="${esc(it.id)}" title="${esc(lampText(l))}"></i>`}
+function findAny(id){for(const k of ['devices','vms','storage']){const x=S[k].find(i=>i.id===id);if(x)return x}return null}
+function paintLamps(){
+  document.querySelectorAll('[data-lamp]').forEach(el=>{const it=findAny(el.dataset.lamp);if(!it)return;const l=liveOf(it);el.className='lamp '+(l?l.state:'pending');el.title=lampText(l)});
+  if(window.paintMapStatus)paintMapStatus();
+}
+function commit(){save();render()}
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>document.querySelector(s);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600)}
+
+/* ============ IP helpers ============ */
+function ip2n(ip){const p=String(ip||'').trim().split('.');if(p.length!==4)return null;let n=0;for(const x of p){if(!/^\d{1,3}$/.test(x)||+x>255)return null;n=n*256+ +x}return n}
+function n2ip(n){return [n>>>24&255,n>>>16&255,n>>>8&255,n&255].join('.')}
+function cidr(s){const m=String(s||'').trim().match(/^(\d+\.\d+\.\d+\.\d+)\/(\d{1,2})$/);if(!m)return null;const b=+m[2];if(b>32)return null;const base=ip2n(m[1]);if(base==null)return null;const mask=b===0?0:(0xFFFFFFFF<<(32-b))>>>0;const net=(base&mask)>>>0;return{net,mask,bits:b,bcast:(net|(~mask>>>0))>>>0,size:2**(32-b)}}
+function inNet(ip,c){const n=ip2n(ip);return n!=null&&!!c&&((n&c.mask)>>>0)===c.net}
+function vlanByIp(ip){return S.vlans.find(v=>inNet(ip,cidr(v.subnet)))}
+function vlanById(id){return S.vlans.find(v=>+v.vlanId===+id)}
+function ipAssignments(){
+  const a=[];
+  S.devices.forEach(d=>d.mgmtIp&&a.push({name:d.name,ip:String(d.mgmtIp).trim(),kind:d.type}));
+  S.vms.forEach(v=>v.ip&&a.push({name:v.name,ip:String(v.ip).trim(),kind:'vm'}));
+  S.vlans.forEach(v=>v.gateway&&a.push({name:`VLAN ${v.vlanId} gateway`,ip:String(v.gateway).trim(),kind:'gateway'}));
+  return a;
+}
+function dupIps(){const m={};ipAssignments().forEach(x=>(m[x.ip]=m[x.ip]||[]).push(x.name));return Object.entries(m).filter(([,v])=>v.length>1)}
+function nextFree(v){const c=cidr(v.subnet);if(!c||c.size<4)return null;const used=new Set(ipAssignments().map(x=>ip2n(x.ip)));for(let n=c.net+1;n<c.bcast;n++)if(!used.has(n))return n2ip(n);return null}
+function parseVlanList(s){const out=new Set();String(s||'').split(/[,\s]+/).forEach(p=>{const m=p.match(/^(\d+)(?:-(\d+))?$/);if(!m)return;const a=+m[1],b=m[2]?+m[2]:a;for(let i=a;i<=b&&i-a<4095;i++)out.add(i)});return out}
+const vlanColor=v=>{if(!v)return '#556070';const x=S.vlans.find(y=>+y.vlanId===+v);return x&&x.color?x.color:`hsl(${(+v*47)%360} 62% 44%)`};
+
+/* ============ schema ============ */
+const TYPES=['server','switch','router','firewall','storage','ap','camera','iot','pc','phone','internet','pdu','ups','patch-panel','other'];
+const STATUS=['planned','ordered','installed','live','decom'];
+const VENDORS=['cisco-ios','aruba-cx','generic'];
+const NET=['switch','router','firewall'];
+const PORTDEV=[...NET,'patch-panel'];
+const IOTLIKE=['iot','camera','ap','phone','pc'];
+const LINKKINDS={access:'Access port',trunk:'Trunk (802.1Q)',lag:'LAG / EtherChannel',virtual:'Virtual (VM, bridge)',wireless:'Wireless',other:'Other (USB, coax, serial)'};
+const SCHEMA={
+  racks:{title:'Racks',key:'name',fields:[
+    {k:'name',l:'Name',req:1},{k:'location',l:'Location'},{k:'units',l:'Units',t:'num',def:42},{k:'notes',l:'Notes',t:'area'}]},
+  vlans:{title:'VLANs',key:'vlanId',fields:[
+    {k:'vlanId',l:'VLAN ID',t:'num',req:1},{k:'name',l:'Name',req:1},{k:'subnet',l:'Subnet',ph:'10.0.10.0/24'},{k:'gateway',l:'Gateway',ph:'10.0.10.1'},
+    {k:'color',l:'Color',t:'color'},{k:'notes',l:'Notes',t:'area'}]},
+  devices:{title:'Devices',key:'name',fields:[
+    {k:'name',l:'Name',req:1},{k:'type',l:'Type',t:'sel',opts:()=>TYPES,def:'server'},
+    {k:'model',l:'Model',ph:'type a model — e.g. R740, 2960X-48LPS, U6 Pro',kb:1},{k:'make',l:'Make'},
+    {k:'role',l:'Role',ph:'Proxmox host, pfSense, Plex…'},{k:'serial',l:'Serial / service tag'},
+    {k:'mgmtIp',l:'Mgmt IP',ph:'10.0.10.10'},{k:'mgmtVlan',l:'Mgmt VLAN',t:'vlan'},
+    {k:'check',l:'Health check',ph:'ping · tcp:443 · none',hint:'how the server checks it'},{k:'mac',l:'MAC address',ph:'AA:BB:CC:DD:EE:FF'},
+    {k:'rackId',l:'Rack',t:'ref',ref:'racks'},{k:'uStart',l:'U Start',t:'num',hint:'bottom U of the device'},{k:'uSize',l:'U Size',t:'num',def:1},
+    {k:'portCount',l:'Ports',t:'num',def:24,show:d=>PORTDEV.includes(d.type)},
+    {k:'vendor',l:'Config Style',t:'sel',opts:()=>VENDORS,def:'cisco-ios',show:d=>NET.includes(d.type)},
+    {k:'ifPrefix',l:'Interface Prefix',ph:'GigabitEthernet1/0/',show:d=>NET.includes(d.type)},
+    {k:'mgmtType',l:'Out-of-band mgmt',ph:'iDRAC9, iLO 5, IPMI',show:d=>['server','storage'].includes(d.type)},
+    {k:'os',l:'OS / firmware'},{k:'cpu',l:'CPU',show:d=>['server','storage','pc'].includes(d.type)},{k:'ramGb',l:'RAM GB',t:'num',show:d=>['server','storage','pc'].includes(d.type)},
+    {k:'protocol',l:'Connects via',ph:'Wi-Fi, Zigbee, PoE…',show:d=>IOTLIKE.includes(d.type)},{k:'location',l:'Location',ph:'Garage, office ceiling…'},
+    {k:'assetTag',l:'Asset tag'},{k:'status',l:'Status',t:'sel',opts:()=>STATUS,def:'planned'},{k:'notes',l:'Notes',t:'area'}]},
+  vms:{title:'VMs',key:'name',fields:[
+    {k:'name',l:'Name',req:1,kb:1},{k:'kind',l:'Kind',t:'sel',opts:()=>['vm','lxc','app','container'],def:'vm'},{k:'hostId',l:'Host',t:'ref',ref:'servers'},{k:'vmid',l:'VM ID',t:'num'},
+    {k:'ip',l:'IP'},{k:'vlan',l:'VLAN',t:'vlan'},{k:'check',l:'Health check',ph:'ping · tcp:32400 · none'},{k:'mac',l:'MAC'},
+    {k:'os',l:'OS'},{k:'cpu',l:'vCPU',t:'num'},{k:'ramGb',l:'RAM GB',t:'num'},{k:'diskGb',l:'Disk GB',t:'num'},
+    {k:'status',l:'Status',t:'sel',opts:()=>STATUS,def:'planned'},{k:'notes',l:'Notes',t:'area'}]},
+  storage:{title:'Storage',key:'name',fields:[
+    {k:'name',l:'Name',req:1},{k:'deviceId',l:'Device',t:'ref',ref:'storagehosts'},{k:'kind',l:'Kind',t:'sel',opts:()=>['pool','dataset','share','disk','storage'],def:'pool'},
+    {k:'layout',l:'Layout / type',ph:'RAIDZ1 ×4, mirror, SMB…'},{k:'sizeGb',l:'Size GB',t:'num'},{k:'usedGb',l:'Used GB',t:'num'},
+    {k:'health',l:'Health'},{k:'path',l:'Path'},{k:'protocol',l:'Protocol',ph:'SMB, NFS, iSCSI'},{k:'notes',l:'Notes',t:'area'}]},
+  links:{title:'Links',fields:[
+    {k:'a',l:'From',t:'ref',ref:'devices'},{k:'b',l:'To',t:'ref',ref:'devices'},{k:'kind',l:'Link type',t:'sel',opts:()=>Object.keys(LINKKINDS),def:'access'},
+    {k:'aPort',l:'From port'},{k:'bPort',l:'To port'},{k:'vlans',l:'VLANs',ph:'20  or  all  or  10,20,30'},{k:'speed',l:'Speed',t:'sel',opts:()=>['','100M','1G','2.5G','10G','25G'],def:''},{k:'notes',l:'Notes',t:'area'}]},
+  ports:{title:'Ports',fields:[
+    {k:'switchId',l:'Switch',t:'ref',ref:'portdevs'},{k:'port',l:'Port',t:'num'},
+    {k:'mode',l:'Mode',t:'sel',opts:()=>['access','trunk','disabled'],def:'access'},
+    {k:'vlan',l:'VLAN',t:'vlan',show:d=>d.mode==='access'},
+    {k:'native',l:'Native VLAN',t:'vlan',show:d=>d.mode==='trunk'},
+    {k:'allowed',l:'Allowed VLANs',ph:'10,20,30-35 or all',show:d=>d.mode==='trunk'},
+    {k:'connectedTo',l:'Connected To',t:'ref',ref:'devices'},{k:'remotePort',l:'Remote Port',ph:'eth0 / Gi1/0/48'},
+    {k:'desc',l:'Description',t:'area'}]}
+};
+const REFS={racks:()=>S.racks,devices:()=>S.devices,servers:()=>S.devices.filter(d=>d.type==='server'),storagehosts:()=>S.devices.filter(d=>['storage','server'].includes(d.type)),
+  switches:()=>S.devices.filter(d=>NET.includes(d.type)),portdevs:()=>S.devices.filter(d=>PORTDEV.includes(d.type))};
+const byName=(a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true});
+function refName(ref,id){const x=REFS[ref]().find(r=>r.id===id);return x?x.name:''}
+function refId(ref,name){name=String(name||'').trim().toLowerCase();if(!name)return '';const x=REFS[ref]().find(r=>String(r.name).trim().toLowerCase()===name);return x?x.id:''}
+function defaults(sc){const o={};sc.fields.forEach(f=>{if(f.def!==undefined)o[f.k]=f.def});return o}
+const dev=id=>S.devices.find(d=>d.id===id);
+const rack=id=>S.racks.find(r=>r.id===id);
+function ifName(sw,n){const p=sw.ifPrefix||(sw.type==='patch-panel'?'':sw.vendor==='aruba-cx'?'1/1/':sw.vendor==='cisco-ios'?'GigabitEthernet1/0/':'port');return p+n}
+function portOf(sw,n){return S.ports.find(p=>p.switchId===sw.id&&+p.port===+n)}
+
+/* rack placement check */
+function placeCheck(d){
+  if(!d.rackId||!d.uStart)return null;const r=rack(d.rackId);if(!r)return null;
+  const s=+d.uStart,e=s+(+d.uSize||1)-1;
+  if(s<1||e>(+r.units||42))return `Doesn't fit: U${s}–U${e} is outside ${r.name} (${r.units}U)`;
+  const o=S.devices.find(x=>x.id!==d.id&&x.rackId===d.rackId&&+x.uStart>0&&!(e<+x.uStart||s>+x.uStart+(+x.uSize||1)-1));
+  return o?`Overlaps ${o.name} (U${o.uStart}) in ${r.name}`:null;
+}
+
+/* ============ nav / render ============ */
+const TABS=[['dash','Dashboard'],['map','Map'],['status','Status'],['racks','Racks'],['devices','Devices'],['vms','VMs'],['storage','Storage'],['ports','Ports'],['vlans','VLANs / IP'],['integ','Integrations'],['config','Switch Config'],['ping','Ping Tests'],['io','Import / Export'],['help','How to use']];
+function render(){
+  const field=UI.mode==='field';
+  document.body.classList.toggle('field',field);
+  if(field){$('#view').innerHTML=viewField();setSync();window.afterField&&afterField();return}
+  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${UI.tab===k?'on':''}" data-act="tab" data-tab="${k}">${l}</button>`).join('');
+  const v={dash:viewDash,map:viewMap,status:viewStatus,racks:viewRacks,devices:()=>viewTable('devices'),vms:()=>viewTable('vms'),storage:()=>viewTable('storage'),vlans:()=>viewTable('vlans'),
+    ports:viewPorts,integ:viewInteg,config:viewConfig,ping:viewPing,io:viewIO,help:viewHelp}[UI.tab]||viewDash;
+  $('#view').innerHTML=v();
+  if(UI.tab==='racks')bindRackDnD();
+  if(UI.tab==='map')bindMap();
+  setSync();
+}
+/* ============ dashboard ============ */
+function viewDash(){
+  const totalU=S.racks.reduce((a,r)=>a+(+r.units||0),0);
+  const usedU=S.devices.filter(d=>d.rackId&&+d.uStart>0&&rack(d.rackId)).reduce((a,d)=>a+(+d.uSize||1),0);
+  const pdevs=REFS.switches();const totalP=pdevs.reduce((a,d)=>a+(+d.portCount||0),0);
+  const usedP=S.ports.filter(p=>pdevs.some(d=>d.id===p.switchId)&&p.mode!=='disabled').length;
+  const pings=Object.values(S.ping);const up=pings.filter(p=>p.status==='up').length,down=pings.filter(p=>p.status==='down').length;
+  const pct=(a,b)=>b?Math.round(a/b*100):0;
+  const issues=[];
+  dupIps().forEach(([ip,n])=>issues.push(['bad',`Duplicate IP <span class="mono">${esc(ip)}</span>: ${n.map(esc).join(', ')}`]));
+  S.devices.forEach(d=>{const e=placeCheck(d);if(e)issues.push(['bad',`${esc(d.name)}: ${esc(e)}`])});
+  ipAssignments().forEach(x=>{if(ip2n(x.ip)==null)issues.push(['bad',`${esc(x.name)}: invalid IP "${esc(x.ip)}"`]);else if(S.vlans.length&&!vlanByIp(x.ip))issues.push(['warn',`${esc(x.name)} (${esc(x.ip)}) isn't inside any VLAN subnet`])});
+  S.vms.forEach(v=>{if(v.ip&&v.vlan&&vlanById(v.vlan)&&!inNet(v.ip,cidr(vlanById(v.vlan).subnet)))issues.push(['warn',`VM ${esc(v.name)}: IP ${esc(v.ip)} isn't in VLAN ${v.vlan} subnet`]);if(!v.hostId)issues.push(['warn',`VM ${esc(v.name)} has no host`])});
+  const unplaced=S.devices.filter(d=>!d.rackId||!(+d.uStart>0));
+  if(unplaced.length)issues.push(['warn',`${unplaced.length} device(s) not placed in a rack: ${unplaced.slice(0,8).map(d=>esc(d.name)).join(', ')}${unplaced.length>8?'…':''}`]);
+  Object.entries(S.ping).forEach(([ip,p])=>{if(p.status==='down'){const n=ipAssignments().find(x=>x.ip===ip);issues.push(['bad',`Ping down: ${esc(n?n.name:'')} <span class="mono">${esc(ip)}</span>`])}});
+  const byType=TYPES.map(t=>[t,S.devices.filter(d=>d.type===t).length]).filter(x=>x[1]);
+  const empty=!S.racks.length&&!S.devices.length;
+  return `<h2>Dashboard</h2>
+  ${SV.mode&&SV.inbox.length?`<div class="banner">📥 <b>${SV.inbox.length} plan${SV.inbox.length>1?'s':''} waiting in the inbox</b><span class="muted small">sent from a phone or another computer</span><span class="spacer"></span><button class="btn pri" data-act="tab" data-tab="io">Review</button></div>`:''}
+  ${empty?`<div class="card empty">Nothing planned yet.<br><br><button class="btn pri" data-act="demo">Load demo network</button> <button class="btn" data-act="tab" data-tab="racks">Start with a rack</button></div>`:''}
+  <div class="tiles">
+    <div class="tile"><b>${S.racks.length}</b><span>Racks · ${usedU}/${totalU} U used</span><div class="bar"><i style="width:${pct(usedU,totalU)}%"></i></div></div>
+    <div class="tile"><b>${S.devices.length}</b><span>Devices</span></div>
+    <div class="tile"><b>${S.vms.length}</b><span>VMs</span></div>
+    <div class="tile"><b>${S.vlans.length}</b><span>VLANs</span></div>
+    <div class="tile"><b>${usedP}/${totalP}</b><span>Switch ports in use</span><div class="bar"><i style="width:${pct(usedP,totalP)}%"></i></div></div>
+    <div class="tile"><b><span style="color:var(--ok)">${up}</span> / <span style="color:var(--bad)">${down}</span></b><span>Ping up / down</span></div>
+  </div>
+  ${statusSummaryCard()}
+  ${FEED.length?`<div class="card"><h3>Recent from other devices</h3>${FEED.slice(0,8).map(f=>`<div class="row small" style="margin:3px 0"><span class="pill">${esc(f.by)}</span>${f.added?'added':'updated'} <b>${esc(f.name)}</b><span class="muted">${esc(f.kind)} · ${new Date(f.at).toLocaleTimeString()}</span></div>`).join('')}</div>`:''}
+  <div class="grid g2">
+    <div class="card"><h3>Issues (${issues.length})</h3>${issues.length?`<ul class="issues">${issues.map(([c,m])=>`<li class="${c}">${m}</li>`).join('')}</ul>`:'<div class="muted">No problems found.</div>'}</div>
+    <div class="card"><h3>Devices by type</h3>${byType.length?byType.map(([t,n])=>`<div class="row" style="margin:4px 0"><span class="chip t-${t}" style="cursor:default">${t}</span><b>${n}</b></div>`).join(''):'<div class="muted">None yet.</div>'}</div>
+  </div>`;
+}
+
+/* ============ generic tables ============ */
+function pingDot(ip){if(!ip)return '';const p=S.ping[String(ip).trim()];return `<i class="dot s-${p?p.status:'none'}" title="${p?esc(p.status+(p.ms?' '+p.ms+'ms':'')+' · '+p.checked):'not tested'}"></i>`}
+function tableCols(kind){
+  const rackU=r=>S.devices.filter(d=>d.rackId===r.id&&+d.uStart>0).reduce((a,d)=>a+(+d.uSize||1),0);
+  const C={
+    racks:[['Name',r=>r.name],['Location',r=>r.location],['Units',r=>r.units],['Devices',r=>S.devices.filter(d=>d.rackId===r.id).length],['Used',r=>`${rackU(r)}/${r.units} U`],['Notes',r=>r.notes,'notes']],
+    devices:[['Name',d=>d.name,null,d=>`<b>${esc(d.name)}</b>`],['Type',d=>d.type,null,d=>`<span class="chip t-${d.type}" style="cursor:default">${esc(d.type)}</span>`],['Model',d=>d.model],
+      ['Mgmt IP',d=>d.mgmtIp,'mono',d=>lamp(d)+' '+esc(d.mgmtIp||'')],['Role',d=>d.role||''],['Rack',d=>refName('racks',d.rackId)],
+      ['U',d=>+d.uStart>0?(+d.uSize>1?`U${d.uStart}–${+d.uStart+ +d.uSize-1}`:`U${d.uStart}`):''],
+      ['Ports',d=>PORTDEV.includes(d.type)?`${S.ports.filter(p=>p.switchId===d.id&&p.mode!=='disabled').length}/${d.portCount||0}`:''],
+      ['VMs',d=>d.type==='server'?S.vms.filter(v=>v.hostId===d.id).length:''],['Status',d=>d.status,null,d=>`<span class="pill">${esc(d.status||'')}</span>`],['Notes',d=>d.notes,'notes']],
+    vms:[['Name',v=>v.name,null,v=>`${lamp(v)} <b>${esc(v.name)}</b>`],['Kind',v=>v.kind||'vm'],['Host',v=>refName('servers',v.hostId)],['IP',v=>v.ip,'mono'],['State',v=>{const l=liveOf(v);return l&&l.detail&&v.extId?l.detail:(v.runState||'')}],
+      ['VLAN',v=>v.vlan?`${v.vlan} ${vlanById(v.vlan)?.name||''}`:''],['OS',v=>v.os],['vCPU',v=>v.cpu],['RAM',v=>v.ramGb?v.ramGb+' GB':''],['Disk',v=>v.diskGb?v.diskGb+' GB':''],
+      ['Status',v=>v.status,null,v=>`<span class="pill">${esc(v.status||'')}</span>`],['Notes',v=>v.notes,'notes']],
+    vlans:[['VLAN',v=>v.vlanId,null,v=>`<span class="dot" style="background:${vlanColor(v.vlanId)}"></span><b>${esc(v.vlanId)}</b>`],['Name',v=>v.name],['Subnet',v=>v.subnet,'mono'],['Gateway',v=>v.gateway,'mono'],
+      ['Used IPs',v=>{const c=cidr(v.subnet);if(!c)return '';const n=new Set(ipAssignments().filter(x=>inNet(x.ip,c)).map(x=>x.ip)).size;return `${n}/${Math.max(c.size-2,0)}`}],
+      ['Next free',v=>nextFree(v)||'','mono'],
+      ['Ports',v=>S.ports.filter(p=>p.mode==='access'&&+p.vlan===+v.vlanId).length],['Notes',v=>v.notes,'notes']],
+    storage:[['Name',x=>x.name,null,x=>`${x.extId?lamp(x)+' ':''}<b>${esc(x.name)}</b>`],['Kind',x=>x.kind],['Device',x=>refName('devices',x.deviceId)],['Layout',x=>x.layout],
+      ['Used',x=>x.sizeGb?`${Math.round(x.usedGb||0)} / ${Math.round(x.sizeGb)} GB`:'',null,x=>x.sizeGb?`${Math.round(x.usedGb||0)} / ${Math.round(x.sizeGb)} GB<div class="bar"><i style="width:${Math.min(100,Math.round((x.usedGb||0)/x.sizeGb*100))}%"></i></div>`:''],
+      ['Health',x=>{const l=liveOf(x);return x.extId&&l&&l.detail?l.detail:(x.health||'')}],['Path',x=>x.path,'mono'],['Protocol',x=>x.protocol],['Notes',x=>x.notes,'notes']]
+  };
+  return C[kind].map(([l,txt,cls,html])=>({l,txt:it=>String(txt(it)??''),cls,html:html||(it=>esc(txt(it)??''))}));
+}
+function viewTable(kind){
+  const sc=SCHEMA[kind],cols=tableCols(kind),q=(UI.q[kind]||'').toLowerCase();
+  let list=[...S[kind]].sort(kind==='vlans'?(a,b)=>a.vlanId-b.vlanId:byName);
+  if(q)list=list.filter(it=>cols.map(c=>c.txt(it)).join(' ').toLowerCase().includes(q));
+  const intro={devices:'Servers, switches, routers, firewalls, storage, PDUs, patch panels. Set Rack + U Start to place it, or drag it on the Racks tab.',
+    vms:'Virtual machines, LXC containers and apps, and the server that hosts them. Proxmox and TrueNAS can fill this in for you (Integrations tab).',storage:'Pools, datasets, shares and disks. Synced from TrueNAS and Proxmox, or add them by hand.',vlans:'VLANs and their subnets. Used to check IPs, pick next free addresses, and build switch configs.',racks:''}[kind];
+  return `<div class="row"><h2>${sc.title}</h2><span class="spacer"></span>
+    <input placeholder="Search…" value="${esc(UI.q[kind]||'')}" data-input="q" data-kind="${kind}" style="width:200px">
+    <button class="btn" data-act="tsv" data-kind="${kind}" title="Copy as tab-separated rows — paste straight into Google Sheets or Excel">Copy for Sheets</button>
+    <button class="btn pri" data-act="add" data-kind="${kind}">+ Add</button></div>
+    ${intro?`<p class="muted" style="margin-top:0">${intro}</p>`:''}
+    ${list.length?`<div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th>${c.l}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${list.map(it=>`<tr>${cols.map(c=>`<td class="${c.cls||''}">${c.html(it)}</td>`).join('')}<td>
+      ${kind==='vlans'&&nextFree(it)?'':''}<button class="btn icon" data-act="edit" data-kind="${kind}" data-id="${it.id}">Edit</button>
+      <button class="btn icon" data-act="dup" data-kind="${kind}" data-id="${it.id}" title="Duplicate">⧉</button>
+      <button class="btn icon danger" data-act="del" data-kind="${kind}" data-id="${it.id}">✕</button></td></tr>`).join('')}
+    </tbody></table></div>`:`<div class="card empty">${q?'No matches.':'Nothing here yet.'}</div>`}`;
+}
+
+/* ============ forms / modal ============ */
+function fieldHtml(f,v){
+  const a=`data-k="${f.k}" id="f_${f.k}"`;let inp;
+  if(f.t==='sel')inp=`<select ${a}>${f.opts().map(o=>`<option ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  else if(f.t==='ref')inp=`<select ${a}><option value="">—</option>${REFS[f.ref]().sort(byName).map(r=>`<option value="${r.id}" ${r.id===v?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`;
+  else if(f.t==='vlan'){const has=S.vlans.some(x=>+x.vlanId===+v);inp=`<select ${a}><option value="">—</option>${!has&&v?`<option selected value="${esc(v)}">${esc(v)} (undefined)</option>`:''}${[...S.vlans].sort((x,y)=>x.vlanId-y.vlanId).map(x=>`<option value="${x.vlanId}" ${+x.vlanId===+v?'selected':''}>${x.vlanId} — ${esc(x.name)}</option>`).join('')}</select>`}
+  else if(f.t==='area')inp=`<textarea ${a} placeholder="${esc(f.ph||'')}">${esc(v)}</textarea>`;
+  else if(f.t==='color')inp=`<input ${a} type="color" value="${esc(v||'#4f8f9a')}">`;
+  else inp=`<input ${a} type="${f.t==='num'?'number':'text'}" value="${esc(v)}" placeholder="${esc(f.ph||'')}">`;
+  const extra=f.kb?`<div class="kbsug" id="kb_${f.k}"></div>`:f.k==='mac'?`<div class="hintline" id="macv">${esc(KB.macVendor(v))}</div>`:'';
+  return `<label class="fld ${f.t==='area'||f.kb?'wide':''}"><span>${f.l}${f.req?' *':''}${f.hint?` <i>(${f.hint})</i>`:''}</span>${inp}${extra}</label>`;
+}
+function readVal(f,el){const v=el.value;if(f.t==='num'||f.t==='vlan'){if(v==='')return '';const n=Number(v);return isNaN(n)?'':n}return v}
+function openModal(html){$('#modalCard').innerHTML=html;$('#modal').classList.remove('hidden');$('#modal').scrollTop=0;
+  if(!matchMedia('(pointer:coarse)').matches)setTimeout(()=>{const i=$('#modalCard input,#modalCard select');i&&i.focus()},20)}
+function closeModal(){$('#modal').classList.add('hidden');$('#modalCard').innerHTML='';if(SV.deferred){SV.deferred=false;setTimeout(render)}}
+function openForm(kind,item,onSave,opt={}){
+  const sc=SCHEMA[kind];const draft=Object.assign(defaults(sc),item||{});
+  const draw=()=>{
+    const fs=sc.fields.filter(f=>!(opt.hide||[]).includes(f.k)&&(!f.show||f.show(draft)));
+    openModal(`<h3>${esc(opt.title||((item&&item.id?'Edit ':'New ')+sc.title.replace(/s$/,'')))}</h3>
+      ${NATIVE&&(kind==='devices'||kind==='vms')&&window.nativeScan?`<div class="row" style="margin:-4px 0 10px"><button class="btn" id="fscan">📷 Scan label / barcode</button><span class="muted small">fills model, serial and MAC</span></div>`:''}
+      <form class="form" id="frm">${fs.map(f=>fieldHtml(f,draft[f.k]??'')).join('')}</form>
+      ${opt.extra||''}<div class="err" id="ferr"></div>
+      <div class="row mact" style="margin-top:12px">${opt.left||''}<span class="spacer"></span><button class="btn" data-act="close">Cancel</button><button class="btn pri" id="fsave">Save</button></div>`);
+    $('#frm').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;const f=sc.fields.find(x=>x.k===k);draft[k]=readVal(f,e.target);
+      if(f.kb)kbSuggest(kind,draft,draw,k);
+      if(k==='mac'&&$('#macv'))$('#macv').textContent=KB.macVendor(draft.mac);
+      if(sc.fields.some(x=>x.show&&String(x.show).includes('d.'+k))){draw();const el=$('#f_'+k);el&&el.focus()}});
+    const sb=$('#fscan');if(sb)sb.onclick=async()=>{const r=await nativeScan();if(!r)return;applyScanToDraft(kind,draft,r);draw()};
+    $('#frm').addEventListener('submit',e=>{e.preventDefault();$('#fsave').click()});
+    $('#fsave').onclick=()=>{
+      const miss=sc.fields.find(f=>f.req&&(draft[f.k]===''||draft[f.k]==null));if(miss){$('#ferr').textContent=miss.l+' is required';return}
+      if(kind!=='ports'||true)touch(draft);
+      const err=onSave(draft);if(err){$('#ferr').textContent=err;return}closeModal();commit();};
+    opt.onDraw&&opt.onDraw(draft);
+  };
+  draw();
+}
+function saveEntity(kind,item){
+  return d=>{
+    const sc=SCHEMA[kind];
+    if(sc.key){const dup=S[kind].find(x=>x.id!==d.id&&String(x[sc.key]).trim().toLowerCase()===String(d[sc.key]).trim().toLowerCase());if(dup)return `A ${sc.title.replace(/s$/,'').toLowerCase()} with ${sc.key==='vlanId'?'VLAN ID':'name'} "${d[sc.key]}" already exists`}
+    if(kind==='devices'){const e=placeCheck(d);if(e)return e}
+    if(kind==='vlans'&&d.subnet&&!cidr(d.subnet))return 'Subnet must be CIDR, e.g. 10.0.10.0/24';
+    if((d.mgmtIp&&ip2n(d.mgmtIp)==null)||(d.ip&&ip2n(d.ip)==null)||(d.gateway&&ip2n(d.gateway)==null))return 'That IP address isn\'t valid';
+    if(d.mac&&/^[0-9a-f:.\- ]{12,17}$/i.test(d.mac)&&d.mac.replace(/[^0-9a-f]/gi,'').length===12)d.mac=KB.fmtMac(d.mac);
+    if(d.id){Object.assign(S[kind].find(x=>x.id===d.id),d)}else{d.id=uid();S[kind].push(d)}
+  };
+}
+function deleteEntity(kind,id){
+  const it=S[kind].find(x=>x.id===id);if(!it)return;
+  if(!confirm(`Delete ${it.name||('VLAN '+it.vlanId)}?`))return;
+  S[kind]=S[kind].filter(x=>x.id!==id);
+  if(kind==='racks')S.devices.forEach(d=>{if(d.rackId===id){d.rackId='';d.uStart=''}});
+  if(kind==='devices'){S.ports=S.ports.filter(p=>p.switchId!==id);S.ports.forEach(p=>{if(p.connectedTo===id)p.connectedTo=''});S.vms.forEach(v=>{if(v.hostId===id)v.hostId=''});S.links=S.links.filter(l=>l.a!==id&&l.b!==id);S.storage.forEach(x=>{if(x.deviceId===id)x.deviceId=''})}
+  commit();
+}
+
+/* ============ knowledge base in forms ============ */
+function kbToDevice(e,d){
+  const o={};const set=(k,v)=>{if(v!==undefined&&v!==''&&v!==null)o[k]=v};
+  set('type',e.type);set('make',e.vendor);set('model',e.model);set('uSize',e.u||'');
+  if(e.u===0){o.uSize=d.uSize||1}
+  if(e.ports)set('portCount',e.ports);if(e.ifPrefix!==undefined)set('ifPrefix',e.ifPrefix);if(e.style)set('vendor',e.style);
+  set('check',e.check);set('mgmtType',e.mgmt);set('cpu',e.cpu);set('role',d.role||e.role);set('protocol',e.protocol);
+  const facts=[e.ram&&('RAM: '+e.ram),e.poe&&('PoE: '+e.poe),e.uplinks&&('Uplinks: '+e.uplinks),e.power&&('Power: '+e.power),e.bays&&('Bays: '+e.bays),e.u===0&&'Not rack-mounted (tower/desktop) — use a shelf U size if racked.',e.notes].filter(Boolean).join('\n');
+  if(facts&&!String(d.notes||'').includes(facts.split('\n')[0]))o.notes=(d.notes?d.notes+'\n':'')+facts;
+  o.kbId=e.id;
+  return o;
+}
+function kbSuggest(kind,draft,draw,k){
+  const box=$('#kb_'+k);if(!box)return;
+  if(kind==='vms'){const sv=KB.service(draft.name);box.innerHTML=sv&&!draft.check?`<button type="button" class="sugg" id="kbsv">${esc(sv.name)} — check tcp:${sv.port}${sv.notes?' · '+esc(sv.notes):''}</button>`:'';
+    const b=$('#kbsv');if(b)b.onclick=()=>{draft.check='tcp:'+sv.port;if(sv.notes&&!draft.notes)draft.notes=sv.notes;draw()};return}
+  const list=KB.search(draft[k]||'',5);
+  box.innerHTML=list.map((e,i)=>`<button type="button" class="sugg" data-i="${i}"><b>${esc(e.vendor)} ${esc(e.model)}</b> <span class="muted">${esc(e.type)}${e.u?` · ${e.u}U`:''}${e.ports?` · ${e.ports} ports`:''}${e.mgmt?' · '+esc(e.mgmt):''}</span></button>`).join('');
+  box.querySelectorAll('.sugg').forEach(b=>b.onclick=()=>{Object.assign(draft,kbToDevice(list[+b.dataset.i],draft));draw();toast('Filled in from the built-in hardware knowledge')});
+}
+function applyScanToDraft(kind,draft,r){
+  const p=KB.parseScan(r);
+  if(p.serials[0]&&!draft.serial)draft.serial=p.serials[0];
+  if(p.macs[0]&&!draft.mac)draft.mac=p.macs[0];
+  if(p.assetTags[0]&&!draft.assetTag)draft.assetTag=p.assetTags[0];
+  if(kind==='devices'&&p.ips[0]&&!draft.mgmtIp)draft.mgmtIp=p.ips[0];
+  if(kind==='vms'&&p.ips[0]&&!draft.ip)draft.ip=p.ips[0];
+  const m=p.models.find(x=>x.kb);if(m&&kind==='devices'){Object.assign(draft,kbToDevice(KB.byId(m.kb)||KB.lookup(m.text),draft));if(!draft.name)draft.name=KB.lookup(m.text)?.model||''}
+  else if(p.models[0]&&!draft.model)draft.model=p.models[0].text;
+  toast(`Scanned: ${[m&&'model',p.serials[0]&&'serial',p.macs[0]&&'MAC',p.ips[0]&&'IP'].filter(Boolean).join(', ')||'no known fields — text kept in notes'}`);
+  if(!m&&!p.serials.length&&!p.macs.length&&p.raw.length)draft.notes=(draft.notes?draft.notes+'\n':'')+'Scanned: '+p.raw.join(' | ');
+}
+
+/* ============ racks ============ */
+function viewRacks(){
+  const un=S.devices.filter(d=>!d.rackId||!(+d.uStart>0)||!rack(d.rackId)).sort(byName);
+  return `<div class="row"><h2>Racks</h2><span class="spacer"></span><button class="btn" data-act="add" data-kind="devices">+ Device</button><button class="btn pri" data-act="add" data-kind="racks">+ Rack</button></div>
+  <div class="card"><h3>Unplaced devices <span class="muted small">— drag onto a rack slot · drag a racked device here to remove it</span></h3>
+    <div class="tray" id="tray">${un.map(d=>`<span class="chip t-${d.type}" draggable="true" data-dev="${d.id}" title="${esc(d.type)} · ${d.uSize||1}U">${esc(d.name)} <small>${d.uSize||1}U</small></span>`).join('')||'<span class="muted small">All devices are racked.</span>'}</div></div>
+  ${S.racks.length?`<div class="racks">${S.racks.map(rackHtml).join('')}</div>`:`<div class="card empty">No racks yet. <button class="btn pri" data-act="add" data-kind="racks">+ Add rack</button></div>`}
+  <p class="muted small">Click an empty slot to place or create a device there. Click a device to edit it. Dropping puts the device's top at the slot you drop on.</p>`;
+}
+function rackHtml(r){
+  const U=+r.units||42;let h='';
+  for(let u=U;u>=1;u--){const row=U-u+1;h+=`<div class="ru-num" style="grid-row:${row}">${u}</div><div class="ru-slot" style="grid-row:${row}" data-rack="${r.id}" data-u="${u}"></div>`}
+  const ds=S.devices.filter(d=>d.rackId===r.id&&+d.uStart>0);
+  ds.forEach(d=>{const sz=Math.max(1,+d.uSize||1);const top=Math.min(U,+d.uStart+sz-1);const row=U-top+1;const span=Math.max(1,Math.min(sz,U-row+1));
+    h+=`<div class="ru-dev t-${d.type}" draggable="true" data-dev="${d.id}" data-act="editdev" style="grid-row:${row}/span ${span}" title="${esc(d.name)} · ${esc(d.model||d.type)} · ${esc(d.mgmtIp||'')}">${lamp(d)}<b>${esc(d.name)}</b><small>${sz>1?`U${d.uStart}-${top}`:`U${d.uStart}`}</small></div>`});
+  const used=ds.reduce((a,d)=>a+(+d.uSize||1),0);
+  return `<div class="rack"><div class="rack-head"><b>${esc(r.name)}</b><span class="muted small">${esc(r.location||'')} ${used}/${U}U</span>
+    <button class="btn icon" data-act="edit" data-kind="racks" data-id="${r.id}">Edit</button><button class="btn icon danger" data-act="del" data-kind="racks" data-id="${r.id}">✕</button></div>
+    <div class="rack-body" style="grid-template-rows:repeat(${U},var(--u))">${h}</div></div>`;
+}
+function moveDevice(id,rackId,topU){
+  const d=dev(id);if(!d)return;const sz=+d.uSize||1;
+  const cand=Object.assign({},d,{rackId,uStart:Math.max(1,topU-sz+1)});
+  const e=placeCheck(cand);if(e){toast(e);return}
+  Object.assign(d,{rackId:cand.rackId,uStart:cand.uStart});touch(d);commit();
+}
+function bindRackDnD(){
+  document.querySelectorAll('[data-dev][draggable]').forEach(el=>el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',el.dataset.dev);e.dataTransfer.effectAllowed='move'}));
+  document.querySelectorAll('.ru-slot').forEach(s=>{
+    s.addEventListener('dragover',e=>{e.preventDefault();s.classList.add('over')});
+    s.addEventListener('dragleave',()=>s.classList.remove('over'));
+    s.addEventListener('drop',e=>{e.preventDefault();s.classList.remove('over');moveDevice(e.dataTransfer.getData('text/plain'),s.dataset.rack,+s.dataset.u)});
+  });
+  const t=$('#tray');if(t){t.addEventListener('dragover',e=>{e.preventDefault();t.classList.add('over')});t.addEventListener('dragleave',()=>t.classList.remove('over'));
+    t.addEventListener('drop',e=>{e.preventDefault();const d=dev(e.dataTransfer.getData('text/plain'));if(d){d.rackId='';d.uStart='';commit()}})}
+}
+function placeDialog(rackId,u){
+  const r=rack(rackId);const un=S.devices.filter(d=>!d.rackId||!(+d.uStart>0)).sort(byName);
+  openModal(`<h3>${esc(r.name)} · U${u}</h3>
+   ${un.length?`<label class="fld wide"><span>Place an unplaced device (its top will be at U${u})</span><select id="plSel">${un.map(d=>`<option value="${d.id}">${esc(d.name)} (${d.uSize||1}U ${esc(d.type)})</option>`).join('')}</select></label>`:'<p class="muted">No unplaced devices.</p>'}
+   <div class="row" style="margin-top:14px"><button class="btn" data-act="newhere" data-rack="${rackId}" data-u="${u}">+ New device here</button><span class="spacer"></span>
+   <button class="btn" data-act="close">Cancel</button>${un.length?`<button class="btn pri" data-act="placeit" data-rack="${rackId}" data-u="${u}">Place</button>`:''}</div>`);
+}
+
+/* ============ ports ============ */
+function viewPorts(){
+  const sws=REFS.portdevs().sort(byName);
+  if(!sws.length)return `<h2>Ports</h2><div class="card empty">Add a switch, router, firewall or patch panel on the Devices tab first.<br><br><button class="btn pri" data-act="add" data-kind="devices">+ Device</button></div>`;
+  if(!sws.some(s=>s.id===UI.portSw))UI.portSw=sws[0].id;
+  const sw=dev(UI.portSw);const N=+sw.portCount||0;
+  const btn=n=>{const p=portOf(sw,n);const m=p?p.mode:'';const c=p?(p.connectedTo?refName('devices',p.connectedTo)+(p.remotePort?' '+p.remotePort:''):''):'';
+    const tip=`${ifName(sw,n)}${p?` · ${m}${m==='access'&&p.vlan?' vlan '+p.vlan:''}${m==='trunk'?' '+(p.allowed||'all'):''}${c?' → '+c:''}${p.desc?' · '+p.desc:''}`:' · unused'}`;
+    return `<button class="port ${m?'m-'+m:''} ${p&&p.connectedTo?'linked':''}" style="--vc:${vlanColor(p&&p.vlan)}" data-act="port" data-n="${n}" title="${esc(tip)}">${n}</button>`};
+  let top='',bot='';for(let n=1;n<=N;n++)(n%2?(t=>top+=t):(t=>bot+=t))(btn(n));
+  const list=S.ports.filter(p=>p.switchId===sw.id).sort((a,b)=>a.port-b.port);
+  const usedV=[...new Set(list.filter(p=>p.mode==='access'&&p.vlan).map(p=>+p.vlan))].sort((a,b)=>a-b);
+  return `<div class="row"><h2>Ports</h2><span class="spacer"></span>
+    <select data-input="portSw">${sws.map(s=>`<option value="${s.id}" ${s.id===sw.id?'selected':''}>${esc(s.name)} (${s.portCount||0}p ${esc(s.type)})</option>`).join('')}</select>
+    <button class="btn" data-act="edit" data-kind="devices" data-id="${sw.id}">Edit device</button>
+    <button class="btn" data-act="tsv" data-kind="ports">Copy for Sheets</button></div>
+  <div class="card"><div class="row" style="margin-bottom:8px"><h3 style="margin:0">${esc(sw.name)}</h3><span class="muted small">${esc(sw.model||'')} · ${esc(sw.mgmtIp||'no mgmt IP')} · click a port to configure it</span></div>
+    <div class="faceplate">${N?`<div class="prow">${top}</div><div class="prow">${bot}</div>`:'<span class="muted">Set a port count on this device.</span>'}</div>
+    <div class="legend"><span><i style="background:#1f2731;border:2px solid #556070"></i>unused</span><span><i style="background:repeating-linear-gradient(135deg,#7c3aed 0 3px,#5b21b6 3px 6px)"></i>trunk</span><span><i style="background:#2b2f35"></i>disabled</span><span><i style="background:#facc15;border-radius:50%"></i>cabled to a device</span>
+      ${usedV.map(v=>`<span><i style="background:${vlanColor(v)}"></i>VLAN ${v} ${esc(vlanById(v)?.name||'')}</span>`).join('')}</div></div>
+  <div class="card"><h3>Bulk configure</h3><div class="row">
+    Ports <input type="number" id="bFrom" value="1" min="1" style="width:70px"> to <input type="number" id="bTo" value="${N}" style="width:70px">
+    <select id="bMode"><option>access</option><option>trunk</option><option>disabled</option><option value="clear">clear (unused)</option></select>
+    <select id="bVlan"><option value="">VLAN / native —</option>${[...S.vlans].sort((a,b)=>a.vlanId-b.vlanId).map(v=>`<option value="${v.vlanId}">${v.vlanId} — ${esc(v.name)}</option>`).join('')}</select>
+    <input id="bAllowed" placeholder="allowed (trunk) e.g. 10,20" style="width:170px"><input id="bDesc" placeholder="description" style="width:150px">
+    <button class="btn pri" data-act="bulk">Apply</button></div></div>
+  ${list.length?`<div class="tbl-wrap"><table><thead><tr><th>Port</th><th>Interface</th><th>Mode</th><th>VLAN</th><th>Allowed / native</th><th>Connected to</th><th>Remote port</th><th>Description</th><th></th></tr></thead><tbody>
+    ${list.map(p=>`<tr><td><b>${p.port}</b></td><td class="mono">${esc(ifName(sw,p.port))}</td><td>${esc(p.mode)}</td>
+      <td>${p.mode==='access'&&p.vlan?`<span class="dot" style="background:${vlanColor(p.vlan)}"></span>${p.vlan} ${esc(vlanById(p.vlan)?.name||'')}`:''}</td>
+      <td class="mono">${p.mode==='trunk'?esc(p.allowed||'all')+(p.native?' · native '+p.native:''):''}</td>
+      <td>${esc(refName('devices',p.connectedTo))}</td><td class="mono">${esc(p.remotePort||'')}</td><td class="notes">${esc(p.desc||'')}</td>
+      <td><button class="btn icon" data-act="port" data-n="${p.port}">Edit</button></td></tr>`).join('')}</tbody></table></div>`:''}`;
+}
+function editPort(n){
+  const sw=dev(UI.portSw);const ex=portOf(sw,n);
+  openForm('ports',ex||{switchId:sw.id,port:n,mode:'access'},d=>{
+    if(ex)Object.assign(ex,d);else S.ports.push(Object.assign(d,{id:uid()}));
+  },{hide:['switchId','port'],title:`${sw.name} · port ${n} (${ifName(sw,n)})`,
+     left:ex?`<button class="btn danger" data-act="clearport" data-n="${n}">Clear port</button>`:''});
+}
+function bulkPorts(){
+  const sw=dev(UI.portSw);const a=+$('#bFrom').value,b=+$('#bTo').value,mode=$('#bMode').value,vl=$('#bVlan').value,al=$('#bAllowed').value.trim(),ds=$('#bDesc').value.trim();
+  if(!a||!b||a>b||b>(+sw.portCount||0)){toast('Check the port range');return}
+  for(let n=a;n<=b;n++){
+    if(mode==='clear'){S.ports=S.ports.filter(p=>!(p.switchId===sw.id&&+p.port===n));continue}
+    let p=portOf(sw,n);if(!p){p={id:uid(),switchId:sw.id,port:n};S.ports.push(p)}
+    touch(p);p.mode=mode;if(mode==='access'){if(vl)p.vlan=+vl}else if(mode==='trunk'){if(vl)p.native=+vl;if(al)p.allowed=al}
+    if(ds)p.desc=ds;
+  }
+  commit();toast(`Updated ports ${a}–${b}`);
+}
+
+/* ============ switch config ============ */
+function usedVlans(sw){const s=new Set();S.ports.filter(p=>p.switchId===sw.id).forEach(p=>{if(p.mode==='access'&&p.vlan)s.add(+p.vlan);if(p.mode==='trunk'){if(p.native)s.add(+p.native);if(p.allowed&&p.allowed.trim().toLowerCase()!=='all')parseVlanList(p.allowed).forEach(v=>s.add(v));else S.vlans.forEach(v=>s.add(+v.vlanId))}});if(sw.mgmtVlan)s.add(+sw.mgmtVlan);return s}
+const hostName=n=>String(n||'switch').trim().replace(/[^A-Za-z0-9_-]+/g,'-');
+const cleanDesc=s=>String(s||'').replace(/[\r\n]+/g,' ').trim().slice(0,200);
+function portDesc(p){return cleanDesc(p.desc||(p.connectedTo?refName('devices',p.connectedTo)+(p.remotePort?' '+p.remotePort:''):''))}
+function genConfig(sw,o){
+  const vend=sw.vendor||'cisco-ios';const used=usedVlans(sw);
+  const vl=[...(o.allVlans?S.vlans:S.vlans.filter(v=>used.has(+v.vlanId)))].sort((a,b)=>a.vlanId-b.vlanId);
+  const N=+sw.portCount||0;const L=[];const mv=sw.mgmtVlan&&vlanById(sw.mgmtVlan);const mc=mv&&cidr(mv.subnet);
+  const stamp=`Generated by Net Planner ${new Date().toISOString().slice(0,16).replace('T',' ')} — review before applying`;
+  if(vend==='aruba-cx'){
+    L.push('! '+stamp,'!','hostname '+hostName(sw.name));
+    vl.forEach(v=>L.push('vlan '+v.vlanId,'    name '+hostName(v.name)));
+    for(let n=1;n<=N;n++){const p=portOf(sw,n);if(!p&&!o.shutUnused)continue;L.push('interface '+ifName(sw,n));
+      if(!p){L.push('    shutdown');continue}const d=portDesc(p);if(d)L.push('    description '+d);
+      if(p.mode==='disabled'){L.push('    shutdown');continue}
+      L.push('    no shutdown','    no routing');
+      if(p.mode==='trunk'){if(p.native)L.push('    vlan trunk native '+p.native);L.push('    vlan trunk allowed '+(p.allowed&&p.allowed.trim()?p.allowed.replace(/\s+/g,''):'all'))}
+      else{if(p.vlan)L.push('    vlan access '+p.vlan);}
+    }
+    if(sw.mgmtIp&&sw.mgmtVlan){L.push('interface vlan '+sw.mgmtVlan);L.push(mc?'    ip address '+sw.mgmtIp+'/'+mc.bits:'    ! ip address '+sw.mgmtIp+'/?? (set a subnet on VLAN '+sw.mgmtVlan+')');if(mv&&mv.gateway)L.push('ip route 0.0.0.0/0 '+mv.gateway)}
+    return L.join('\n')+'\n';
+  }
+  if(vend==='generic'){
+    L.push('# '+stamp,'# '+sw.name,'port,interface,mode,vlan,native,allowed,description');
+    for(let n=1;n<=N;n++){const p=portOf(sw,n);L.push([n,ifName(sw,n),p?p.mode:'unused',p&&p.mode==='access'?p.vlan||'':'',p&&p.mode==='trunk'?p.native||'':'',p&&p.mode==='trunk'?p.allowed||'all':'',p?portDesc(p):''].map(csvCell).join(','))}
+    return L.join('\n')+'\n';
+  }
+  L.push('! '+stamp,'!','hostname '+hostName(sw.name));if(o.domain)L.push('ip domain-name '+o.domain);L.push('!');
+  vl.forEach(v=>L.push('vlan '+v.vlanId,' name '+hostName(v.name),'!'));
+  for(let n=1;n<=N;n++){const p=portOf(sw,n);if(!p&&!o.shutUnused)continue;L.push('interface '+ifName(sw,n));
+    if(!p){L.push(' description UNUSED',' shutdown','!');continue}const d=portDesc(p);if(d)L.push(' description '+d);
+    if(p.mode==='disabled'){L.push(' shutdown','!');continue}
+    if(p.mode==='trunk'){L.push(' switchport mode trunk');if(p.native)L.push(' switchport trunk native vlan '+p.native);L.push(' switchport trunk allowed vlan '+(p.allowed&&p.allowed.trim()&&p.allowed.trim().toLowerCase()!=='all'?p.allowed.replace(/\s+/g,''):'all'))}
+    else{L.push(' switchport mode access');if(p.vlan)L.push(' switchport access vlan '+p.vlan);if(o.portfast)L.push(' spanning-tree portfast')}
+    L.push(' no shutdown','!');
+  }
+  if(sw.mgmtIp&&sw.mgmtVlan){L.push('interface Vlan'+sw.mgmtVlan,' description MGMT',mc?' ip address '+sw.mgmtIp+' '+n2ip(mc.mask):' ! ip address '+sw.mgmtIp+' <mask> (set a subnet on VLAN '+sw.mgmtVlan+')',' no shutdown','!');if(mv&&mv.gateway)L.push('ip default-gateway '+mv.gateway,'!')}
+  L.push('end');return L.join('\n')+'\n';
+}
+function viewConfig(){
+  const sws=REFS.switches().sort(byName);
+  if(!sws.length)return `<h2>Switch Config</h2><div class="card empty">Add a switch, router or firewall on the Devices tab first.</div>`;
+  if(!sws.some(s=>s.id===UI.cfgSw))UI.cfgSw=sws[0].id;const sw=dev(UI.cfgSw);const o=UI.cfg;
+  const txt=genConfig(sw,o);
+  return `<div class="row"><h2>Switch Config</h2><span class="spacer"></span>
+   <select data-input="cfgSw">${sws.map(s=>`<option value="${s.id}" ${s.id===sw.id?'selected':''}>${esc(s.name)} · ${esc(s.vendor||'cisco-ios')}</option>`).join('')}</select>
+   <button class="btn" data-act="edit" data-kind="devices" data-id="${sw.id}">Change style / mgmt</button></div>
+  <div class="card"><div class="row">
+   <label><input type="checkbox" data-cfg="allVlans" ${o.allVlans?'checked':''}> include all VLANs</label>
+   <label><input type="checkbox" data-cfg="shutUnused" ${o.shutUnused?'checked':''}> shut unused ports</label>
+   <label><input type="checkbox" data-cfg="portfast" ${o.portfast?'checked':''}> portfast on access ports (IOS)</label>
+   <input data-cfg="domain" placeholder="domain name (IOS)" value="${esc(o.domain||'')}" style="width:170px">
+   <span class="spacer"></span>
+   <button class="btn" data-act="cfgcopy">Copy</button><button class="btn" data-act="cfgdl">Download .txt</button><button class="btn pri" data-act="cfgall">Download all switches</button></div></div>
+  <pre class="cfg" id="cfgOut">${esc(txt)}</pre>
+  <p class="muted small">Built from the Ports and VLANs tabs. Interface names come from the device's Interface Prefix (default: IOS <span class="mono">GigabitEthernet1/0/</span>, Aruba CX <span class="mono">1/1/</span>). Always review a generated config before pasting it into a live switch.</p>`;
+}
+
+/* ============ ping ============ */
+function pingTargets(){const seen=new Set();return ipAssignments().filter(x=>ip2n(x.ip)!=null&&!seen.has(x.ip)&&seen.add(x.ip))}
+function viewPing(){
+  const t=pingTargets();
+  const st=x=>S.ping[x.ip]||{};
+  return `<div class="row"><h2>Ping Tests</h2><span class="spacer"></span>
+    <button class="btn" data-act="pingsh">Download Mac/Linux script</button><button class="btn" data-act="pingps">Download Windows script</button>
+    <label class="btn">Import results CSV<input type="file" accept=".csv,text/csv" data-file="ping" hidden></label>
+    ${SV.mode||UI.svUrl?`<button class="btn pri" data-act="svping" title="Real ICMP ping, sent from the Net Planner server">Ping from server</button>`:''}
+    <button class="btn ${SV.mode||UI.svUrl?'':'pri'}" data-act="probe">Quick browser check</button><button class="btn danger" data-act="pingclear">Clear</button></div>
+  <div class="card small muted">${SV.mode||UI.svUrl?'<b>Ping from server</b> runs real pings from the computer running the Net Planner server. ':''}Browsers can't send real ICMP pings. <b>For real pings</b>, download the script, run it from a machine on the network
+   (<span class="mono">bash ping-test.sh</span> or <span class="mono">powershell -ExecutionPolicy Bypass -File ping-test.ps1</span>), then import the <span class="mono">ping-results.csv</span> it writes.
+   <b>Quick browser check</b> tries an HTTP request to each IP: <span style="color:var(--ok)">up</span> = something answered on port 80, <span style="color:var(--warn)">refused</span> = fast error (host may be up with no web server, or unreachable), <span style="color:var(--bad)">down</span> = timed out.
+   Any CSV with <span class="mono">ip,status,ms</span> columns imports, so results from your own ping site work too.</div>
+  ${t.length?`<div class="tbl-wrap"><table><thead><tr><th>Name</th><th>IP</th><th>Kind</th><th>VLAN</th><th>Status</th><th>ms</th><th>Method</th><th>Checked</th></tr></thead><tbody>
+  ${t.map(x=>{const p=st(x);const v=vlanByIp(x.ip);return `<tr><td><b>${esc(x.name)}</b></td><td class="mono">${esc(x.ip)}</td><td>${esc(x.kind)}</td><td>${v?v.vlanId+' '+esc(v.name):''}</td>
+    <td>${p.status?`<i class="dot s-${p.status}"></i>${esc(p.status)}`:'<span class="muted">—</span>'}</td><td class="mono">${esc(p.ms??'')}</td><td class="muted">${esc(p.method||'')}</td><td class="muted small">${esc(p.checked||'')}</td></tr>`}).join('')}
+  </tbody></table></div>`:'<div class="card empty">No IPs yet. Give devices a Mgmt IP, VMs an IP, or VLANs a gateway.</div>'}`;
+}
+function scriptSafe(s){return String(s).replace(/[^A-Za-z0-9 ._()\-]/g,'_')}
+function pingSh(){
+  const lines=pingTargets().map(x=>`${scriptSafe(x.name)},${x.ip}`).join('\n');
+  return `#!/usr/bin/env bash
+# Net Planner ping test — writes ping-results.csv (import it on the Ping Tests tab)
+out="ping-results.csv"
+echo "name,ip,status,ms,checked" > "$out"
+if [[ "$(uname)" == "Darwin" ]]; then opt="-c 2 -t 3"; else opt="-c 2 -w 3"; fi
+while IFS=, read -r name ip; do
+  [[ -z "$ip" ]] && continue
+  if r=$(ping $opt "$ip" 2>/dev/null); then
+    ms=$(echo "$r" | awk -F'/' '/avg/ {print $5}'); st=up
+  else ms=""; st=down; fi
+  echo "$name,$ip,$st,$ms,$(date '+%Y-%m-%d %H:%M:%S')" >> "$out"
+  printf "%-5s %-16s %-30s %s\\n" "$st" "$ip" "$name" "$ms"
+done <<'TARGETS'
+${lines}
+TARGETS
+echo "Saved $out"
+`;
+}
+function pingPs(){
+  const lines=pingTargets().map(x=>`  @{n='${scriptSafe(x.name)}';ip='${x.ip}'}`).join(",\n");
+  return `# Net Planner ping test — writes ping-results.csv (import it on the Ping Tests tab)
+$targets = @(
+${lines}
+)
+$res = foreach ($t in $targets) {
+  $p = Test-Connection -ComputerName $t.ip -Count 2 -ErrorAction SilentlyContinue
+  $ok = $p | Where-Object { -not $_.PSObject.Properties['Status'] -or $_.Status -eq 'Success' }
+  if ($ok) {
+    $lat = $ok | ForEach-Object { if ($_.PSObject.Properties['Latency']) { $_.Latency } else { $_.ResponseTime } }
+    $ms = [math]::Round(($lat | Measure-Object -Average).Average, 1); $st = 'up'
+  } else { $ms = ''; $st = 'down' }
+  Write-Host ("{0,-5} {1,-16} {2}  {3}" -f $st, $t.ip, $t.n, $ms)
+  [pscustomobject]@{ name=$t.n; ip=$t.ip; status=$st; ms=$ms; checked=(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
+}
+$res | Export-Csv -Path ping-results.csv -NoTypeInformation
+Write-Host "Saved ping-results.csv"
+`;
+}
+async function probe(ip,ms=2500){
+  const ctl=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ctl.abort(),ms);
+  try{await fetch('http://'+ip+'/',{mode:'no-cors',cache:'no-store',signal:ctl.signal});return{status:'up',ms:Math.round(performance.now()-t0)}}
+  catch(e){const dt=performance.now()-t0;if(ctl.signal.aborted)return{status:'down',ms:''};return{status:dt<ms*.9?'refused':'down',ms:Math.round(dt)}}
+  finally{clearTimeout(tm)}
+}
+async function runProbe(){
+  const t=pingTargets();if(!t.length){toast('No IPs to check');return}
+  if(location.protocol==='https:')toast('Note: HTTPS pages may block http:// checks — open the file locally for best results');
+  let i=0,done=0;const now=()=>new Date().toLocaleString();
+  async function worker(){while(i<t.length){const x=t[i++];const r=await probe(x.ip);S.ping[x.ip]={...r,method:'browser http',checked:now()};done++;if(UI.tab==='ping'&&done%4===0)commit()}}
+  toast(`Checking ${t.length} IPs…`);await Promise.all(Array.from({length:8},worker));commit();toast('Browser check finished');
+}
+async function serverPing(){
+  const t=pingTargets();if(!t.length){toast('No IPs to ping');return}
+  toast(`Pinging ${t.length} IPs from the server…`);let done=0;
+  try{
+    for(let i=0;i<t.length;i+=40){
+      const r=await api('/api/ping',{method:'POST',body:JSON.stringify({targets:t.slice(i,i+40).map(x=>x.ip)}),timeout:60000});
+      const now=new Date().toLocaleString();(r.results||[]).forEach(x=>{S.ping[x.ip]={status:x.status,ms:x.ms,method:'server icmp',checked:now}});done+=(r.results||[]).length;commit();
+    }
+    toast(`Server pinged ${done} IPs`);
+  }catch(e){toast('Server ping failed: '+e.message)}
+}
+function importPing(rows){
+  let n=0;rows.forEach(r=>{const g=k=>{const key=Object.keys(r).find(x=>x.trim().toLowerCase()===k);return key?String(r[key]).trim():''};
+    const ip=g('ip')||g('address')||g('host');if(ip2n(ip)==null)return;let s=g('status').toLowerCase()||g('result').toLowerCase()||g('success').toLowerCase()||g('alive').toLowerCase();
+    s=/^(up|ok|success|true|alive|reachable|online|1|yes)$/.test(s)?'up':/^(refused)$/.test(s)?'refused':'down';
+    S.ping[ip]={status:s,ms:g('ms')||g('latency')||g('time')||g('avg'),method:'imported',checked:g('checked')||g('timestamp')||g('date')||new Date().toLocaleString()};n++});
+  commit();toast(`Imported ${n} ping result(s)`);
+}
+
+/* ============ CSV / sheets ============ */
+function csvCell(v){v=String(v??'');return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function toCSV(rows){if(!rows.length)return '';const h=Object.keys(rows[0]);return [h.map(csvCell).join(','),...rows.map(r=>h.map(k=>csvCell(r[k])).join(','))].join('\r\n')+'\r\n'}
+function parseCSV(text){
+  text=text.replace(/^﻿/,'');const rows=[];let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=c}
+    else if(c==='"')q=true;else if(c===','){row.push(cell);cell=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}
+    else cell+=c}
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}
+  const nonEmpty=rows.filter(r=>r.some(c=>c.trim()!==''));if(!nonEmpty.length)return [];
+  const h=nonEmpty[0].map(x=>x.trim());return nonEmpty.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]??''])));
+}
+const SHEETS=['racks','vlans','devices','vms','ports','storage','links'];
+function toRows(kind){
+  const sc=SCHEMA[kind];let list=[...S[kind]];
+  if(kind==='ports')list.sort((a,b)=>refName('portdevs',a.switchId).localeCompare(refName('portdevs',b.switchId))||a.port-b.port);
+  else if(kind==='vlans')list.sort((a,b)=>a.vlanId-b.vlanId);else list.sort(byName);
+  return list.map(it=>{const o={};sc.fields.forEach(f=>{let v=it[f.k];if(f.t==='ref')v=refName(f.ref,v);o[f.l]=v??''});
+    if(kind==='ports'){const sw=dev(it.switchId);o['Interface']=sw?ifName(sw,it.port):''}return o});
+}
+function headerRow(kind){const o={};SCHEMA[kind].fields.forEach(f=>o[f.l]='');if(kind==='ports')o.Interface='';return o}
+function fromRows(kind,rows){
+  const sc=SCHEMA[kind];let n=0;
+  rows.forEach(r=>{
+    const norm={};Object.keys(r).forEach(k=>norm[String(k).trim().toLowerCase()]=r[k]);
+    const o={};sc.fields.forEach(f=>{const key=[f.l.toLowerCase(),f.k.toLowerCase()].find(k=>k in norm);if(key===undefined)return;
+      let v=String(norm[key]??'').trim();if(f.t==='ref')v=refId(f.ref,v);else if(f.t==='num'||f.t==='vlan'){v=v===''?'':Number(v);if(Number.isNaN(v))v=''}o[f.k]=v});
+    if(kind==='links'){if(!o.a||!o.b)return;const ex=S.links.find(l=>l.a===o.a&&l.b===o.b||l.a===o.b&&l.b===o.a);if(ex)Object.assign(ex,o);else S.links.push(Object.assign({id:uid(),kind:'access'},o));n++;return}
+    if(kind==='ports'){if(!o.switchId||!o.port)return;o.mode=['access','trunk','disabled'].includes(String(o.mode).toLowerCase())?String(o.mode).toLowerCase():'access';
+      const ex=S.ports.find(p=>p.switchId===o.switchId&&+p.port===+o.port);if(ex)Object.assign(ex,o);else S.ports.push(Object.assign({id:uid()},o));n++;return}
+    if(o.type!==undefined&&!TYPES.includes(o.type))o.type='other';
+    const key=sc.key;if(o[key]===undefined||o[key]==='')return;
+    const ex=S[kind].find(x=>String(x[key]).trim().toLowerCase()===String(o[key]).trim().toLowerCase());
+    if(ex)Object.assign(ex,o);else S[kind].push(Object.assign(defaults(sc),{id:uid()},o));n++;
+  });
+  return n;
+}
+/* Save a file: in the iOS app this opens the share sheet (Files, AirDrop, Mail…); in a browser it downloads. */
+function saveFile(name,content,mime='text/plain',isB64=false){
+  if(NATIVE){window.webkit.messageHandlers.native.postMessage({action:'save',name,mime,base64:isB64,data:content});return}
+  const b=new Blob([isB64?b64bytes(content):content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+const download=(name,text,type='text/plain')=>saveFile(name,text,type);
+function needXLSX(){if(window.XLSX)return true;toast('Excel library didn\'t load. Use CSV instead.');return false}
+function exportXLSX(template){
+  if(!needXLSX())return;const wb=XLSX.utils.book_new();
+  SHEETS.forEach(k=>{const rows=template?[]:toRows(k);const ws=rows.length?XLSX.utils.json_to_sheet(rows):XLSX.utils.json_to_sheet([headerRow(k)]);
+    if(!rows.length&&template)XLSX.utils.sheet_add_aoa(ws,[Object.keys(headerRow(k))],{origin:0});
+    const h=Object.keys(rows[0]||headerRow(k));ws['!cols']=h.map(x=>({wch:Math.max(10,x.length+2)}));XLSX.utils.book_append_sheet(wb,ws,SCHEMA[k].title)});
+  if(!template){const pr=pingTargets().map(x=>({Name:x.name,IP:x.ip,Kind:x.kind,Status:S.ping[x.ip]?.status||'',ms:S.ping[x.ip]?.ms||'',Checked:S.ping[x.ip]?.checked||''}));if(pr.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pr),'Ping')}
+  const b64=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
+  saveFile(template?'net-planner-template.xlsx':`net-planner-${new Date().toISOString().slice(0,10)}.xlsx`,b64,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',true);
+}
+function importSheets(sheets,replace){
+  if(replace){const ping=S.ping;S=blank();S.ping=ping}
+  const res=[];SHEETS.forEach(k=>{const rows=sheets[k];if(rows&&rows.length)res.push(`${fromRows(k,rows)} ${SCHEMA[k].title.toLowerCase()}`)});
+  if(sheets.ping&&sheets.ping.length)importPing(sheets.ping);
+  commit();toast(res.length?'Imported '+res.join(', '):'Nothing recognised — check sheet / column names');
+}
+function importWorkbook(wb,replace){
+  const sheets={};
+  wb.SheetNames.forEach(name=>{const k=[...SHEETS,'ping'].find(k=>(SCHEMA[k]?.title||'Ping').toLowerCase()===name.trim().toLowerCase()||k===name.trim().toLowerCase());if(k)sheets[k]=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false})});
+  importSheets(sheets,replace);
+}
+async function handleFile(input){
+  const f=input.files[0];if(!f)return;const kind=input.dataset.file;input.value='';
+  if(kind==='ping'){importPing(parseCSV(await f.text()));return}
+  openBytes(f.name,new Uint8Array(await f.arrayBuffer()));
+}
+function viewIO(){
+  const sel=`<select id="csvTarget">${SHEETS.map(k=>`<option value="${k}">${SCHEMA[k].title}</option>`).join('')}<option value="ping">Ping results</option></select>`;
+  const where=NATIVE?'on this iPhone/iPad (also in the Files app under <i>On My iPhone → Net Planner</i>)':SV.mode?'on the Net Planner server, so every computer and phone that opens it sees the same plan':'in this browser only';
+  const inbox=SV.mode?`<div class="card" id="inbox"><h3>Inbox — plans sent from phones (${SV.inbox.length})</h3>
+     ${SV.inbox.length?SV.inbox.map(it=>`<div class="inbox-item"><div style="flex:1;min-width:180px"><b>${esc(it.label||it.id)}</b><br><span class="muted small">${esc(it.source||'')} · received ${esc(new Date(it.received).toLocaleString())} · ${it.counts?`${it.counts.devices} devices, ${it.counts.ports} ports`:''}</span></div>
+       <button class="btn pri icon" data-act="inbox" data-op="open" data-id="${esc(it.id)}">Open…</button><button class="btn icon" data-act="inbox" data-op="dl" data-id="${esc(it.id)}">Download</button><button class="btn icon danger" data-act="inbox" data-op="del" data-id="${esc(it.id)}">✕</button></div>`).join('')
+     :'<p class="muted small">Nothing yet. In the iPhone app, go to Import / Export → Server, and tap <b>Send to inbox</b>. You can also drag a .netplan file onto this page.</p>'}</div>`:'';
+  const remote=!SV.mode?`<div class="card"><h3>Server${NATIVE?' (sync with your computer)':''}</h3>
+     <p class="muted small">Address of the Net Planner server running on your computer, e.g. <span class="mono">http://192.168.1.20:8770</span>. The server prints it when it starts. Your phone must be on the same network.</p>
+     <div class="row"><input id="svUrl" data-ui="svUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://192.168.1.20:8770" value="${esc(UI.svUrl||'')}" style="flex:1;min-width:200px">
+       <input id="svToken" data-ui="svToken" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="token (if set)" value="${esc(UI.svToken||'')}" style="width:130px"></div>
+     <div class="row" style="margin-top:8px"><button class="btn" data-act="remote" data-op="test">Test</button><button class="btn pri" data-act="remote" data-op="send">Send to inbox</button>
+       <button class="btn" data-act="remote" data-op="deploy">Deploy as live plan</button><button class="btn" data-act="remote" data-op="pull">Pull from server</button></div>
+     <p class="muted small" style="margin-top:8px"><b>Send to inbox</b> drops a copy on the website for you to review and merge. <b>Deploy</b> replaces the website's live plan (the server keeps history).</p></div>`:'';
+  return `<h2>Import / Export</h2>
+  <div class="grid g2">
+   <div class="card"><h3>Net Planner file (.netplan)</h3>
+     <p class="muted small">The whole plan in one file — racks, devices, VMs, VLANs, ports and ping results. Use it to move plans between the iPhone app, the website and other computers. Your plan is saved ${where}.</p>
+     <div class="row"><button class="btn pri" data-act="netplan">${NATIVE?'Export / Share .netplan':'Download .netplan'}</button><label class="btn">Open .netplan<input type="file" accept=".netplan,.json,application/json" data-file="plan" hidden></label></div></div>
+   ${inbox}${remote}
+   <div class="card"><h3>Spreadsheets</h3>
+     <p class="muted small">One workbook with tabs for Racks, VLANs, Devices, VMs, Ports and Ping. Opens in Excel, and in Google Sheets via <i>File → Import → Upload</i>. Rack, host and switch columns use names, so you can edit them in the sheet.</p>
+     <div class="row"><button class="btn pri" data-act="xlsx">Export workbook (.xlsx)</button><button class="btn" data-act="tpl">Blank template</button></div>
+     <p class="muted small" style="margin-top:14px">Single table as CSV, or copy it and paste straight into a Google Sheet:</p>
+     <div class="row"><select id="expTarget">${SHEETS.map(k=>`<option value="${k}">${SCHEMA[k].title}</option>`).join('')}</select>
+       <button class="btn" data-act="csv">CSV</button><button class="btn" data-act="tsvsel">Copy for Sheets</button></div></div>
+   <div class="card"><h3>Import spreadsheet</h3>
+     <p class="muted small">Import the workbook (.xlsx) after editing it, or a CSV for one table. Rows are matched by Name (VLAN ID for VLANs, Switch + Port for ports): existing rows update, new rows are added. From Google Sheets: <i>File → Download → Microsoft Excel (.xlsx)</i>.</p>
+     <div class="row"><label><input type="checkbox" id="impReplace"> replace instead of merge</label></div>
+     <div class="row" style="margin-top:8px"><label class="btn pri">Import .xlsx / .csv<input type="file" accept=".xlsx,.xls,.csv,.tsv" data-file="sheet" hidden></label> CSV goes into ${sel}</div></div>
+   <div class="card"><h3>Reset</h3><div class="row"><button class="btn" data-act="demo">Load demo network</button><button class="btn danger" data-act="reset">Erase everything</button></div></div>
+  </div>`;
+}
+async function copyTSV(kind){
+  const rows=toRows(kind);if(!rows.length){toast('Nothing to copy');return}
+  const h=Object.keys(rows[0]);const clean=v=>String(v??'').replace(/[\t\r\n]+/g,' ');
+  const txt=[h.join('\t'),...rows.map(r=>h.map(k=>clean(r[k])).join('\t'))].join('\n');
+  try{await navigator.clipboard.writeText(txt);toast(`Copied ${rows.length} rows — paste into cell A1 of your sheet`)}catch(e){download(kind+'.tsv',txt);toast('Clipboard blocked — downloaded a .tsv instead')}
+}
+
+/* ============ demo ============ */
+function demo(){
+  if((S.devices.length||S.racks.length)&&!confirm('Replace current data with the demo network?'))return;
+  S=blank();const R=(name,location)=>{const r={id:uid(),name,location,units:42,notes:''};S.racks.push(r);return r.id};
+  const r1=R('RACK-A01','Server room, row A'),r2=R('RACK-A02','Server room, row A');
+  [[10,'USERS','10.0.10.0/24','10.0.10.1'],[20,'SERVERS','10.0.20.0/24','10.0.20.1'],[30,'STORAGE','10.0.30.0/24','10.0.30.1'],[40,'VOICE','10.0.40.0/24','10.0.40.1'],[99,'MGMT','10.0.99.0/24','10.0.99.1']]
+    .forEach(([vlanId,name,subnet,gateway])=>S.vlans.push({id:uid(),vlanId,name,subnet,gateway,notes:''}));
+  const D=o=>{const d=Object.assign({id:uid(),status:'installed',uSize:1,notes:''},o);S.devices.push(d);return d};
+  const fw=D({name:'FW-01',type:'firewall',vendor:'generic',model:'FortiGate 100F',mgmtIp:'10.0.99.254',mgmtVlan:99,rackId:r1,uStart:41,portCount:8,ifPrefix:'port'});
+  const core=D({name:'CORE-SW01',type:'switch',vendor:'cisco-ios',model:'Catalyst 9300-48P',mgmtIp:'10.0.99.2',mgmtVlan:99,rackId:r1,uStart:39,portCount:48});
+  const pp=D({name:'PP-A01',type:'patch-panel',model:'Cat6 48-port',rackId:r1,uStart:38,portCount:24});
+  const acc=D({name:'ACC-SW01',type:'switch',vendor:'aruba-cx',model:'Aruba 6100 24G',mgmtIp:'10.0.99.3',mgmtVlan:99,rackId:r2,uStart:40,portCount:24});
+  const h1=D({name:'ESX-01',type:'server',model:'Dell R750',mgmtIp:'10.0.99.21',serial:'7XK2Q3',rackId:r1,uStart:20,uSize:2});
+  const h2=D({name:'ESX-02',type:'server',model:'Dell R750',mgmtIp:'10.0.99.22',rackId:r1,uStart:17,uSize:2});
+  const nas=D({name:'NAS-01',type:'storage',model:'Synology RS3621',mgmtIp:'10.0.30.10',rackId:r1,uStart:10,uSize:2});
+  D({name:'UPS-A01',type:'ups',model:'APC SMT3000',rackId:r1,uStart:1,uSize:2,mgmtIp:'10.0.99.40'});
+  D({name:'PDU-A01',type:'pdu',model:'APC AP7900',status:'planned'});
+  D({name:'ESX-03',type:'server',model:'Dell R760',status:'ordered',uSize:2,mgmtIp:'10.0.99.23'});
+  [['DC-01',h1,'10.0.20.10',20,'Windows Server 2022',4,16,120],['FILE-01',h1,'10.0.20.11',20,'Windows Server 2022',4,8,500],['WEB-01',h2,'10.0.20.20',20,'Ubuntu 24.04',2,4,60],['MON-01',h2,'10.0.99.50',99,'Ubuntu 24.04',2,4,80]]
+    .forEach(([name,h,ip,vlan,os,cpu,ramGb,diskGb])=>S.vms.push({id:uid(),name,hostId:h.id,ip,vlan,os,cpu,ramGb,diskGb,status:'live',notes:''}));
+  const P=(sw,port,o)=>S.ports.push(Object.assign({id:uid(),switchId:sw.id,port,mode:'access'},o));
+  P(core,1,{mode:'trunk',native:99,allowed:'10,20,30,40,99',connectedTo:fw.id,remotePort:'port1',desc:'Uplink to firewall'});
+  P(core,2,{mode:'trunk',native:99,allowed:'10,40,99',connectedTo:acc.id,remotePort:'1/1/24'});
+  P(core,5,{mode:'trunk',native:99,allowed:'20,99',connectedTo:h1.id,remotePort:'vmnic0'});
+  P(core,6,{mode:'trunk',native:99,allowed:'20,99',connectedTo:h2.id,remotePort:'vmnic0'});
+  P(core,9,{vlan:30,connectedTo:nas.id,remotePort:'LAN1'});
+  P(core,47,{vlan:99,desc:'Mgmt laptop'});P(core,48,{mode:'disabled',desc:'Spare'});
+  for(let n=1;n<=16;n++)P(acc,n,{vlan:10,desc:'Desk '+n});for(let n=17;n<=20;n++)P(acc,n,{vlan:40,desc:'Phone'});
+  P(acc,24,{mode:'trunk',native:99,allowed:'10,40,99',connectedTo:core.id,remotePort:'Gi1/0/2',desc:'Uplink to core'});
+  for(let n=1;n<=4;n++)P(pp,n,{connectedTo:core.id,remotePort:'Gi1/0/'+(n+8),desc:'Office drop '+n});
+  UI.tab='dash';commit();toast('Demo network loaded');
+}
+
+/* ============ events ============ */
+const ACT={
+  tab:a=>{UI.tab=a.dataset.tab;commit();scrollTo(0,0)},
+  add:a=>openForm(a.dataset.kind,null,saveEntity(a.dataset.kind)),
+  edit:a=>{const k=a.dataset.kind;const it=S[k].find(x=>x.id===a.dataset.id);it&&openForm(k,{...it},saveEntity(k))},
+  dup:a=>{const k=a.dataset.kind;const it=S[k].find(x=>x.id===a.dataset.id);if(!it)return;const c={...it};delete c.id;
+    if(SCHEMA[k].key==='name')c.name=it.name+'-copy';if(k==='vlans')c.vlanId='';if(k==='devices'){c.uStart='';c.mgmtIp=''}if(k==='vms')c.ip='';openForm(k,c,saveEntity(k))},
+  del:a=>deleteEntity(a.dataset.kind,a.dataset.id),
+  editdev:a=>{const d=dev(a.dataset.dev);d&&openForm('devices',{...d},saveEntity('devices'))},
+  close:()=>closeModal(),
+  placeit:a=>{const id=$('#plSel').value;closeModal();moveDevice(id,a.dataset.rack,+a.dataset.u)},
+  newhere:a=>{closeModal();openForm('devices',{rackId:a.dataset.rack,uStart:+a.dataset.u},saveEntity('devices'))},
+  port:a=>editPort(+a.dataset.n),
+  clearport:a=>{const sw=dev(UI.portSw);S.ports=S.ports.filter(p=>!(p.switchId===sw.id&&+p.port===+a.dataset.n));closeModal();commit()},
+  bulk:()=>bulkPorts(),
+  cfgcopy:async()=>{try{await navigator.clipboard.writeText($('#cfgOut').textContent);toast('Config copied')}catch(e){toast('Clipboard blocked — use Download')}},
+  cfgdl:()=>{const sw=dev(UI.cfgSw);download(hostName(sw.name)+'.txt',genConfig(sw,UI.cfg))},
+  cfgall:()=>{const all=REFS.switches().sort(byName).map(sw=>`!!!!!!!!!!!!!!!! ${sw.name} (${sw.vendor||'cisco-ios'}) !!!!!!!!!!!!!!!!\n`+genConfig(sw,UI.cfg)).join('\n');download('all-switch-configs.txt',all)},
+  pingsh:()=>download('ping-test.sh',pingSh()),pingps:()=>download('ping-test.ps1',pingPs()),
+  probe:()=>runProbe(),pingclear:()=>{if(confirm('Clear all ping results?')){S.ping={};commit()}},
+  xlsx:()=>exportXLSX(false),tpl:()=>exportXLSX(true),
+  csv:()=>{const k=$('#expTarget').value;const rows=toRows(k);download(`net-planner-${k}.csv`,'﻿'+toCSV(rows.length?rows:[headerRow(k)]),'text/csv')},
+  tsv:a=>copyTSV(a.dataset.kind),tsvsel:()=>copyTSV($('#expTarget').value),
+  netplan:()=>exportNetplan(),
+  mode:a=>{UI.mode=a.dataset.mode;if(UI.mode==='full'&&a.dataset.tab)UI.tab=a.dataset.tab;saveUI();render();scrollTo(0,0)},
+  checknow:()=>checkNow(),
+  remote:a=>remoteAct(a.dataset.op),
+  inbox:a=>inboxAct(a.dataset.op,a.dataset.id),
+  svping:()=>serverPing(),
+  demo:()=>demo(),
+  reset:()=>{if(confirm('Erase all racks, devices, VMs, VLANs, ports and ping results? This cannot be undone (download a backup first).')){S=blank();commit()}},
+  theme:()=>{const cur=document.documentElement.dataset.theme;const dark=cur?cur==='dark':matchMedia('(prefers-color-scheme:dark)').matches;const nt=dark?'light':'dark';document.documentElement.dataset.theme=nt;UI.theme=nt;save()}
+};
+document.addEventListener('click',e=>{
+  if(e.target.id==='modal'){closeModal();return}
+  const slot=e.target.closest('.ru-slot');if(slot){placeDialog(slot.dataset.rack,+slot.dataset.u);return}
+  const a=e.target.closest('[data-act]');if(!a)return;if(a.tagName==='BUTTON')e.preventDefault();ACT[a.dataset.act]&&ACT[a.dataset.act](a,e);
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.input==='q'){UI.q[t.dataset.kind]=t.value;save();const pos=t.selectionStart;render();const n=document.querySelector(`[data-input="q"][data-kind="${t.dataset.kind}"]`);if(n){n.focus();n.setSelectionRange(pos,pos)}}
+  if(t.dataset.ui){UI[t.dataset.ui]=t.value.trim();saveUI()}
+  if(t.dataset.cfg){UI.cfg[t.dataset.cfg]=t.type==='checkbox'?t.checked:t.value;save();const sw=dev(UI.cfgSw);$('#cfgOut').textContent=genConfig(sw,UI.cfg)}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.input==='portSw'){UI.portSw=t.value;commit()}
+  if(t.dataset.input==='cfgSw'){UI.cfgSw=t.value;commit()}
+  if(t.dataset.file)handleFile(t);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').classList.contains('hidden'))closeModal()});
+if(UI.theme)document.documentElement.dataset.theme=UI.theme;
+/* drop a .netplan / .xlsx / .csv anywhere on the page */
+let dragDepth=0;const isFileDrag=e=>[...(e.dataTransfer?.types||[])].includes('Files');
+addEventListener('dragenter',e=>{if(isFileDrag(e)){dragDepth++;document.body.classList.add('dropping')}});
+addEventListener('dragleave',e=>{if(isFileDrag(e)&&--dragDepth<=0){dragDepth=0;document.body.classList.remove('dropping')}});
+addEventListener('dragover',e=>{if(isFileDrag(e))e.preventDefault()});
+addEventListener('drop',async e=>{if(!isFileDrag(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dropping');
+  const f=e.dataTransfer.files[0];if(f)openBytes(f.name,new Uint8Array(await f.arrayBuffer()))});
+if(!UI.mode)UI.mode=PLATFORM==='phone'?'field':'full';
+if(PLATFORM==='phone'||PLATFORM==='pad'||(!NATIVE&&matchMedia('(pointer:coarse)').matches))$('#fieldBtn').hidden=false;
+/* first paint happens after the feature scripts (integ.js, topo.js, field.js) load — see the end of the page */
+detectServer().then(found=>{
+  if(found||!NATIVE)return;
+  if(UI.live&&UI.svUrl)startLink(false);
+  else if(PLATFORM==='mac'&&!UI.svUrl)autoLinkLocal();
+  startLocalChecks();
+});
+async function autoLinkLocal(){
+  try{const h=await api('/api/health',{timeout:2500},'http://localhost:8770');if(h.app!=='netplanner')return;
+    UI.svUrl='http://localhost:8770';UI.live=true;saveUI();await startLink(true)}catch(e){}
+}
+</script>
+<script src="integ.js"></script>
+<script src="topo.js"></script>
+<script src="field.js"></script>
+<script src="help.js"></script>
+<script src="duo.js"></script>
+<script>render()</script>
+</body>
+</html>

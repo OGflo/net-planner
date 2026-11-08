@@ -1,0 +1,10 @@
+{
+  "name": "Net Planner server",
+  "host": "0.0.0.0",
+  "port": 8770,
+  "token": "",
+  "history": 100,
+  "data_dir": "data",
+  "monitor_interval": 30,
+  "monitor_timeout": 1.0
+}

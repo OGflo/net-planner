@@ -1,0 +1,253 @@
+<title>Net Planner System Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: diagram-editor feel — document bar, dot-grid canvas with swimlanes, inspector panel beside it, build timeline below */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --canvas:#f8fafb; --dot:#cdd5dc; --ink:#17202a; --muted:#5b6876; --line:#d3dbe2; --wire:#5f6d7a;
+  --accent:#1f6feb; --accent-soft:#e3edfd;
+  --dev:#2563eb; --dev-bg:#e8f0fe; --srv:#0f766e; --srv-bg:#e1f3f1; --lab:#c2560c; --lab-bg:#fdeee3;
+  --file:#7c3aed; --file-bg:#f1eafe; --core:#475569; --core-bg:#eef1f5; --lane:#ffffffb3;
+  --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1117; --panel:#141b23; --canvas:#10161d; --dot:#26313c; --ink:#e4eaf0; --muted:#8e9bab; --line:#2a3644; --wire:#91a0b0;
+  --accent:#5b9dff; --accent-soft:#16263d;
+  --dev:#6aa1ff; --dev-bg:#152238; --srv:#3cc4b4; --srv-bg:#0f2a28; --lab:#f59a52; --lab-bg:#2e1d10;
+  --file:#b493ff; --file-bg:#211a35; --core:#9fb0c3; --core-bg:#1a222c; --lane:#141b2399; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1117; --panel:#141b23; --canvas:#10161d; --dot:#26313c; --ink:#e4eaf0; --muted:#8e9bab; --line:#2a3644; --wire:#91a0b0;
+  --accent:#5b9dff; --accent-soft:#16263d;
+  --dev:#6aa1ff; --dev-bg:#152238; --srv:#3cc4b4; --srv-bg:#0f2a28; --lab:#f59a52; --lab-bg:#2e1d10;
+  --file:#b493ff; --file-bg:#211a35; --core:#9fb0c3; --core-bg:#1a222c; --lane:#141b2399; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.docbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.docbar h1{font-size:18px;margin:0;font-weight:600;text-wrap:balance}
+.docbar .crumb{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.docbar .sp{flex:1}
+.tools{display:flex;gap:4px;align-items:center}
+.tools button{font:500 13px var(--f-ui);color:var(--ink);background:var(--canvas);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-width:34px}
+.tools button:hover{border-color:var(--accent)}
+.tools button:focus-visible,.shape:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tools .zl{font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:44px;text-align:center}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.canvas{background:var(--canvas);border:1px solid var(--line);border-radius:10px;overflow:auto;position:relative}
+.canvas svg{display:block;width:100%;min-width:1080px;height:auto}
+.inspector{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);min-width:0}
+.inspector .kind{font-family:var(--f-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.inspector h2{font-size:17px;margin:2px 0 8px;text-wrap:balance}
+.inspector ul{margin:0;padding-left:18px}
+.inspector li{margin:4px 0}
+.inspector .hint{color:var(--muted);font-size:13px}
+.inspector .tag{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend{display:grid;gap:7px;font-size:12.5px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend svg{flex:none}
+.timeline{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.timeline h2{font-size:15px;margin:0 0 10px}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;counter-reset:s;list-style:none;margin:0;padding:0}
+.steps li{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--canvas);position:relative;min-width:0}
+.steps li::before{counter-increment:s;content:"Step " counter(s);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:2px}
+.steps b{display:block;font-size:13.5px}
+.steps span{font-size:12.5px;color:var(--muted)}
+/* svg */
+.dot{fill:var(--dot)}
+.lane rect{fill:var(--lane);stroke:var(--line)}
+.lane text{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;fill:var(--muted)}
+.shape{cursor:pointer}
+.shape .box{stroke-width:1.4}
+.shape .hdr{font:600 14px var(--f-ui)}
+.shape .ln{font:400 12px var(--f-ui);fill:var(--ink)}
+.shape .mono{font-family:var(--f-mono);font-size:11px}
+.shape.sel .box{stroke-width:3}
+.k-dev .box{fill:var(--dev-bg);stroke:var(--dev)} .k-dev .hdr{fill:var(--dev)}
+.k-srv .box{fill:var(--srv-bg);stroke:var(--srv)} .k-srv .hdr{fill:var(--srv)}
+.k-lab .box{fill:var(--lab-bg);stroke:var(--lab)} .k-lab .hdr{fill:var(--lab)}
+.k-file .box{fill:var(--file-bg);stroke:var(--file)} .k-file .hdr{fill:var(--file)}
+.k-core .box{fill:var(--core-bg);stroke:var(--core)} .k-core .hdr{fill:var(--core)}
+.group > .box{fill:var(--panel)!important;stroke-dasharray:6 4}
+.edge path{fill:none;stroke:var(--wire);stroke-width:1.8}
+.edge.dash path{stroke-dasharray:6 5}
+.edge text{font:500 11px var(--f-ui);fill:var(--muted);paint-order:stroke;stroke:var(--canvas);stroke-width:4px;stroke-linejoin:round}
+.edge.hot path{stroke:var(--accent);stroke-width:2.6}
+.edge.hot text{fill:var(--accent)}
+#arrow path{fill:var(--wire)} #arrowHot path{fill:var(--accent)}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}.inspector{position:static}.steps{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}}
+@media (prefers-reduced-motion:no-preference){.edge path,.shape .box{transition:stroke .15s,stroke-width .15s}}
+</style>
+
+<div class="wrap">
+  <header class="docbar">
+    <div><div class="crumb">Net Planner · system map</div><h1>Everything you built, and how it connects</h1></div>
+    <span class="sp"></span>
+    <div class="tools" role="group" aria-label="Zoom">
+      <button id="zout" aria-label="Zoom out">−</button><span class="zl" id="zl">100%</span><button id="zin" aria-label="Zoom in">+</button><button id="zfit">Fit</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="canvas" id="canvas"><svg id="svg" viewBox="0 0 1600 950" role="img" aria-label="Net Planner system diagram"></svg></div>
+    <aside class="inspector" id="insp" aria-live="polite">
+      <div class="kind">Inspector</div>
+      <h2>Click any shape</h2>
+      <p class="hint">Each box shows what that part does and how it talks to the others. Connections it uses light up on the diagram.</p>
+      <div class="legend">
+        <div><span class="tag" style="background:var(--dev)"></span>Your devices</div>
+        <div><span class="tag" style="background:var(--srv)"></span>Server on your Mac</div>
+        <div><span class="tag" style="background:var(--lab)"></span>Homelab it watches</div>
+        <div><span class="tag" style="background:var(--file)"></span>Files in and out</div>
+        <div><span class="tag" style="background:var(--core)"></span>Shared code &amp; installers</div>
+        <div><svg width="44" height="10"><path d="M2 5h40" stroke="var(--wire)" stroke-width="1.8"/></svg>Live data / sync</div>
+        <div><svg width="44" height="10"><path d="M2 5h40" stroke="var(--wire)" stroke-width="1.8" stroke-dasharray="6 5"/></svg>Bundled / installed</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="timeline">
+    <h2>How it came together</h2>
+    <ol class="steps">
+      <li><b>Planner website</b><span>Racks, devices, VMs, ports, VLANs, switch configs, ping tests, Excel / Sheets.</span></li>
+      <li><b>iPhone app + server</b><span>.netplan file, installable server on the Mac, phone inbox, real pings.</span></li>
+      <li><b>Mac app &amp; field mode</b><span>Live merging sync, scanner, hardware knowledge, status lights, map, Proxmox, TrueNAS, IoT scan.</span></li>
+      <li><b>How to use guide</b><span>Every feature explained, in More on the iPhone and a tab on Mac and web.</span></li>
+      <li><b>iPhone Duo</b><span>Two panes open, camera and Status glance closed, Control Center buttons.</span></li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('svg');
+
+/* ---------- diagram data ---------- */
+const LANES=[[30,'YOUR DEVICES',300],[350,'BACKEND & DATA',320],[700,'SHARED CODE & DEPLOY',230]];
+const S=[
+ {id:'cc',k:'dev',x:40,y:85,w:190,h:200,t:'Control Center',l:['Scan Label','Net Status','Check Now','Find Device','','opens netplanner:// links'],
+  d:['Four buttons you add in Control Center, the Lock Screen or the Action button.','Each opens Net Planner straight to a tool.','On the Duo, Scan and Status follow the fold: closed opens the camera or Status glance.']},
+ {id:'duo',k:'dev',x:265,y:70,w:445,h:230,t:'iPhone Duo',g:1,l:[],
+  d:['Detects the fold with Apple\'s hinge API (iOS 27.1).','Open: two panes. Closed: cover-screen scanner and Status glance.','Phones without a hinge keep the normal field mode.']},
+ {id:'open',k:'dev',x:285,y:110,w:185,h:170,t:'Open · two panes',l:['Lists on the left','Details, rack or guide','on the right','Camera waits for','you to fold it'],
+  d:['Left pane: rack contents, search results, status, More.','Right pane: whatever you tapped: device details, the rack picture, scan results, the How to use guide.','Tapping Scan or an empty U asks you to fold the Duo closed.']},
+ {id:'closed',k:'dev',x:505,y:110,w:185,h:170,t:'Closed · cover',l:['Camera scanner','(scans into the U','you tapped)','Status glance','Buzzes when down'],
+  d:['The only place the camera works on the Duo.','Folding after tapping a rack U opens the camera by itself and drops the device into that slot.','Status glance: big up / down / stopped counts; the phone buzzes when something new goes down.']},
+ {id:'pm',k:'dev',x:740,y:85,w:190,h:200,t:'iPhone 16 Pro Max',l:['Field mode','Scan · Racks · Find','Status · More','Full planner too','No hinge: camera','always available'],
+  d:['Big-button field mode for working at the rack.','Live camera scanner reads serials, MACs, IPs and models.','Works on its own or as the Mac\'s scanner when linked.']},
+ {id:'mac',k:'dev',x:960,y:85,w:250,h:200,t:'Mac app · main desk',l:['Map, Status, Racks,','Devices, VMs, Storage,','Ports, VLANs / IP,','Integrations, Switch config','','Links to localhost itself'],
+  d:['The same planner as a native Mac app (Catalyst).','Finds the server on this Mac and turns on live sync automatically.','Shows what the phones just added, with who and when.']},
+ {id:'web',k:'dev',x:1240,y:85,w:210,h:200,t:'Website',l:['Any browser','http://<mac>:8770','Live on the server','Drop a .netplan or','map.json to import'],
+  d:['The planner served by the server, so any computer can open it.','Edits save to the server and merge with the apps.','Drag a .netplan, Excel file or NetMap map.json onto the page.']},
+ {id:'files',k:'file',x:40,y:395,w:290,h:245,t:'Files',l:['.netplan · the whole plan','Excel workbook ⇄ Google Sheets','CSV per table','Switch configs (IOS, Aruba CX)','Ping scripts (Mac/Linux, Windows)','NetMap map.json import','AirDrop · Files · Mail'],
+  d:['.netplan is one JSON file with racks, devices, VMs, VLANs, ports, links, storage and ping results.','Excel export has one tab per table; edit it in Sheets and import it back.','Switch configs are generated from the Ports and VLANs tabs.']},
+ {id:'srv',k:'srv',x:400,y:380,w:705,h:275,t:'Net Planner server · this Mac',g:1,l:[],sub:'~/NetPlanner · starts at login · port 8770',
+  d:['Python, standard library only. Installed with install-mac.command as a LaunchAgent.','Keeps one shared plan for every device and the website.','Data in ~/NetPlanner/data: state, history, inbox, integrations.']},
+ {id:'s1',k:'srv',x:420,y:440,w:215,h:90,t:'Live plan',l:['state.netplan','+ last 100 versions','Merges edits item by item'],
+  d:['Each device keeps the last version it synced.','If two devices save at once, the server returns the newer plan and the device merges: your changes win, the rest comes from the server.','Old versions kept in data/history for rollback.']},
+ {id:'s2',k:'srv',x:645,y:440,w:215,h:90,t:'Inbox',l:['Plans sent from phones','Review, then Merge','or Replace'],
+  d:['"Send copy to inbox" from a phone drops a .netplan here without touching the live plan.','The website shows a banner; open it to merge or replace.']},
+ {id:'s3',k:'srv',x:870,y:440,w:215,h:90,t:'Status monitor',l:['Ping or tcp:PORT','every 30 seconds','Feeds every status light'],
+  d:['Checks each device\'s Health check: ping, tcp:PORT (e.g. tcp:8006) or none.','Also polls Proxmox and TrueNAS for running / stopped and pool health.','GET /api/status returns it for Home Assistant or scripts.']},
+ {id:'s4',k:'srv',x:420,y:545,w:215,h:90,t:'Integrations',l:['Proxmox & TrueNAS','API tokens stay here','(file mode 600)'],
+  d:['Tokens are stored only on the server and never sent to phones or browsers.','The website asks the server to fetch on its behalf.','Sync brings in hosts, VMs, LXCs, pools, datasets, shares, disks and apps.']},
+ {id:'s5',k:'srv',x:645,y:545,w:215,h:90,t:'Network scan',l:['Ping sweep + ARP table','Maker from MAC','Open ports → type guess'],
+  d:['Scans a subnet up to /22.','Reads MAC addresses, looks up the likely maker and checks common ports (8006, 8123, 554, 1883…).','You tick which devices to add.']},
+ {id:'s6',k:'srv',x:870,y:545,w:215,h:90,t:'Website + API',l:['/api/state · /status','/inbox · /discover','/integrations · /ping'],
+  d:['Serves the planner to browsers.','JSON API used by the apps; optional access token in config.json.']},
+ {id:'lab',k:'lab',x:1165,y:380,w:400,h:275,t:'Homelab',g:1,l:[],
+  d:['Everything the server checks and pulls in.','Proxmox and TrueNAS through their APIs; switches, firewalls and IoT by ping / TCP and the subnet scan.']},
+ {id:'px',k:'lab',x:1180,y:440,w:180,h:90,t:'Proxmox VE',l:['Hosts, VMs, LXCs','VLAN tag, MAC, IP','Running / stopped'],
+  d:['API token with the read-only PVEAuditor role.','Sync reads nodes, guests (with VLAN tag and IP from the guest agent) and storage.']},
+ {id:'tn',k:'lab',x:1370,y:440,w:180,h:90,t:'TrueNAS',l:['Pools + health','Datasets, shares','Disks, apps'],
+  d:['API key from TrueNAS.','A degraded pool turns red on every status light and the Duo\'s Status glance.']},
+ {id:'gear',k:'lab',x:1180,y:545,w:180,h:90,t:'Network gear',l:['2960X switches','pfSense, APs, UPS','ping / TCP checks'],
+  d:['Built-in knowledge fills in ports, interface names, PoE and management for ~200 models.','Switch configs generated per switch.']},
+ {id:'iot',k:'lab',x:1370,y:545,w:180,h:90,t:'IoT & cameras',l:['IOT / CAMERAS VLANs','Found by the scan','Zigbee via hubs'],
+  d:['Network scan finds devices by IP and MAC.','Devices without an IP are added as type iot with the hub in "Connects via".']},
+ {id:'core',k:'core',x:40,y:740,w:1065,h:175,t:'Shared planner code (web/) — inside every app, served as the website',g:1,l:[],
+  d:['One set of web files runs everywhere: the iPhone, iPad and Mac apps bundle it, and the server serves it.','A fix in web/ reaches every device after a rebuild.']},
+ ...[['index.html','Planner core','racks · ports · sync','Racks, devices, VMs, ports, VLANs, switch configs, Excel and the live merging sync.'],
+     ['kb.js','Hardware brain','~200 models','Built-in specs for about 200 models plus MAC-address makers and the label-scan reader.'],
+     ['integ.js','Status & APIs','Proxmox · TrueNAS','Status board, Proxmox and TrueNAS sync, network scan and checks from the phone.'],
+     ['topo.js','Map','NetMap import','NetMap-style map with live lights, cable drawing, VLAN highlight and map.json import.'],
+     ['field.js','Field mode','scan · racks · find','The big-button iPhone screens: Scan, Racks, Find, Status, More.'],
+     ['duo.js','Fold logic','open / closed','Two panes when the Duo is open; camera and Status glance when it is closed; Control Center links.'],
+     ['help.js','How to use','in-app guide','The How to use guide in More and on the Mac and website.']]
+   .map(([f,t,s,d],i)=>({id:'c'+i,k:'core',x:55+i*150,y:790,w:140,h:105,t:f,l:[t,s],d:[d]})),
+ {id:'dep',k:'core',x:1165,y:740,w:400,h:175,t:'Runs anywhere',l:['Mac: install-mac.command (LaunchAgent)','Windows installer · Linux script','Proxmox LXC (systemd) · Docker','Everything in NetPlanner-Server.zip','Xcode project: iPhone, iPad, Mac'],
+  d:['dist/NetPlanner-Server.zip unpacks and installs on any computer.','Same setup as NetMap for a Proxmox LXC: copy, install python3, enable the service.','The Xcode project builds the iPhone, iPad and Mac apps plus the Control Center extension.']}
+];
+const E=[
+ {f:'cc',t:'duo',d:'M230,185 H265',lx:247,ly:176,lab:'links'},
+ {f:'open',t:'closed',d:'M470,165 H505',lx:487,ly:157,lab:'fold'},
+ {f:'closed',t:'open',d:'M505,235 H470',lx:487,ly:254,lab:'open'},
+ {f:'duo',t:'srv',d:'M490,300 V340 H520 V380',lx:505,ly:333,lab:'live sync'},
+ {f:'pm',t:'srv',d:'M835,285 V352 H745 V380',lx:790,ly:345,lab:'live sync · inbox'},
+ {f:'mac',t:'srv',d:'M1085,285 V340 H965 V380',lx:1025,ly:333,lab:'auto-link'},
+ {f:'web',t:'srv',d:'M1345,285 V366 H1092 V380',lx:1220,ly:359,lab:'served by'},
+ {f:'files',t:'srv',d:'M330,470 H400',lx:365,ly:461,lab:'.netplan',both:1},
+ {f:'files',t:'srv',d:'M330,580 H400',lx:365,ly:571,lab:'Sheets',both:1},
+ {f:'s3',t:'lab',d:'M1105,470 H1165',lx:1135,ly:461,lab:'API'},
+ {f:'s3',t:'gear',d:'M1105,545 H1165',lx:1135,ly:536,lab:'ping'},
+ {f:'s5',t:'iot',d:'M1105,620 H1165',lx:1135,ly:611,lab:'scan'},
+ {f:'core',t:'srv',d:'M752,740 V655',lx:752,ly:700,lab:'website files',dash:1},
+ {f:'dep',t:'srv',d:'M1365,740 V705 H1060 V655',lx:1215,ly:698,lab:'installs',dash:1}
+];
+const LINKS={duo:['cc','open','closed','srv'],open:['closed','srv'],closed:['open','srv','cc'],cc:['duo','closed'],pm:['srv'],mac:['srv'],web:['srv','core'],
+  files:['srv'],srv:['duo','pm','mac','web','files','lab','core','dep'],lab:['s3','srv'],px:['s3','s4'],tn:['s3','s4'],gear:['s3'],iot:['s5'],
+  s1:['duo','pm','mac','web'],s2:['pm','files'],s3:['lab','gear'],s4:['px','tn'],s5:['iot'],s6:['web'],core:['srv'],dep:['srv']};
+
+/* ---------- build ---------- */
+const el=(n,a={},p=svg)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
+const defs=el('defs');
+const pat=el('pattern',{id:'grid',width:20,height:20,patternUnits:'userSpaceOnUse'},defs);el('circle',{class:'dot',cx:1,cy:1,r:1},pat);
+[['arrow','var(--wire)'],['arrowHot','var(--accent)']].forEach(([id])=>{const m=el('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs);el('path',{d:'M0,0 L10,5 L0,10 z'},m)});
+el('rect',{x:0,y:0,width:1600,height:950,fill:'url(#grid)'});
+LANES.forEach(([y,t,h])=>{const g=el('g',{class:'lane'});el('rect',{x:20,y,width:1560,height:h,rx:10},g);el('text',{x:34,y:y+20},g).textContent=t});
+
+const edgeEls=[];
+E.forEach(e=>{const g=el('g',{class:'edge'+(e.dash?' dash':'')});const p=el('path',{d:e.d,'marker-end':'url(#arrow)'},g);if(e.both)p.setAttribute('marker-start','url(#arrow)');
+  const t=el('text',{x:e.lx,y:e.ly,'text-anchor':'middle'},g);t.textContent=e.lab;edgeEls.push({e,g,p})});
+
+const shapeEls={};
+S.forEach(s=>{
+  const g=el('g',{class:`shape k-${s.k}${s.g?' group':''}`,tabindex:0,role:'button','aria-label':s.t,'data-id':s.id});
+  el('rect',{class:'box',x:s.x,y:s.y,width:s.w,height:s.h,rx:s.g?12:8},g);
+  el('text',{class:'hdr',x:s.x+14,y:s.y+24},g).textContent=s.t;
+  let y=s.y+24;
+  if(s.sub){y+=18;const t=el('text',{class:'ln mono',x:s.x+14,y},g);t.textContent=s.sub}
+  (s.l||[]).forEach((line,i)=>{y+=17;if(!line)return;const t=el('text',{class:'ln'+(s.mono0&&i===0?' mono':''),x:s.x+14,y:y+(i===0?4:0)},g);t.textContent=line});
+  shapeEls[s.id]=g;
+});
+// nested shapes must draw above their groups: move children after groups
+S.filter(s=>!s.g).forEach(s=>svg.appendChild(shapeEls[s.id]));
+edgeEls.forEach(({g})=>svg.appendChild(g));
+
+/* ---------- inspector ---------- */
+const KIND={dev:['Your devices','var(--dev)'],srv:['Server on your Mac','var(--srv)'],lab:['Homelab','var(--lab)'],file:['Files','var(--file)'],core:['Shared code & installers','var(--core)']};
+const insp=document.getElementById('insp');const legend=insp.querySelector('.legend').outerHTML;
+const byId=Object.fromEntries(S.map(s=>[s.id,s]));
+function select(id){
+  Object.values(shapeEls).forEach(g=>g.classList.toggle('sel',g.dataset.id===id));
+  const rel=new Set([id,...(LINKS[id]||[])]);
+  const parent=id.startsWith('s')&&id.length===2?'srv':['px','tn','gear','iot'].includes(id)?'lab':['open','closed'].includes(id)?'duo':id.startsWith('c')&&id.length===2?'core':null;
+  edgeEls.forEach(({e,g,p})=>{const hot=rel.has(e.f)&&rel.has(e.t)||e.f===id||e.t===id||(parent&&(e.f===parent||e.t===parent));g.classList.toggle('hot',hot);p.setAttribute('marker-end',hot?'url(#arrowHot)':'url(#arrow)');if(e.both)p.setAttribute('marker-start',hot?'url(#arrowHot)':'url(#arrow)')});
+  const s=byId[id];const [kn,kc]=KIND[s.k];
+  const links=(LINKS[id]||[]).map(x=>byId[x]&&byId[x].t).filter(Boolean);
+  insp.innerHTML=`<div class="kind"><span class="tag" style="background:${kc}"></span>${kn}</div><h2>${s.t}</h2><ul>${s.d.map(x=>`<li>${x.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</li>`).join('')}</ul>${links.length?`<p class="hint">Connects to: ${links.join(', ')}</p>`:''}${legend}`;
+}
+svg.addEventListener('click',ev=>{const g=ev.target.closest('.shape');if(g){ev.stopPropagation();select(g.dataset.id)}});
+svg.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target.classList.contains('shape')){ev.preventDefault();select(ev.target.dataset.id)}});
+
+/* ---------- zoom ---------- */
+let z=1;const zl=document.getElementById('zl');
+const apply=()=>{svg.style.width=(z*100)+'%';svg.style.minWidth=(1080*z)+'px';zl.textContent=Math.round(z*100)+'%'};
+document.getElementById('zin').onclick=()=>{z=Math.min(2,+(z+.25).toFixed(2));apply()};
+document.getElementById('zout').onclick=()=>{z=Math.max(.75,+(z-.25).toFixed(2));apply()};
+document.getElementById('zfit').onclick=()=>{z=1;apply();document.getElementById('canvas').scrollLeft=0};
+apply();
+select('duo');
+})();
+</script>

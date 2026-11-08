@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+# build output (the server zip is attached to GitHub Releases instead)
+dist/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+# local server data and secrets if the server is ever run from this folder
+server/data/
+data/
+*.log
+.claude/
