@@ -10,24 +10,26 @@ Run this in the **Proxmox host shell** (node → Shell). It creates a small Debi
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/OGflo/net-planner/main/install.sh)"
 ```
 
-When it finishes it prints the address, e.g. `http://10.0.10.42:8770`. Open it in a browser, and enter it in the iPhone / Mac app under **More → Link with your Mac / website**.
+The server listens on **port 8770 on every address (0.0.0.0)**, so it answers on whatever IP the container has. The installer never sets an address: the container starts on DHCP, and you control its network in Proxmox.
 
-Put the settings you want **in front of** the command:
+**Set its IP / VLAN:** Proxmox → the `netplanner` container → **Network** → edit `net0` (static IP, gateway, VLAN tag, bridge). Net Planner follows the new address on its own; no reinstall.
+
+Then open `http://<container IP>:8770` in a browser, and enter the same address in the iPhone / Mac app under **More → Link with your Mac / website**.
+
+**Change the port:** put `PORT=` in front of the command, e.g.
 
 ```bash
-VLAN=10 IP=10.0.10.20/24 GW=10.0.10.1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/OGflo/net-planner/main/install.sh)"
+PORT=8080 bash -c "$(curl -fsSL https://raw.githubusercontent.com/OGflo/net-planner/main/install.sh)"
 ```
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `VLAN` | none | VLAN tag for the container (e.g. your MGMT VLAN) |
-| `IP` / `GW` | DHCP | Static address and gateway |
-| `CTID` | next free | Container ID |
-| `BRIDGE` / `STORAGE` | `vmbr0` / `local-lvm` | Network bridge and disk storage |
 | `PORT` | `8770` | Web port |
+| `CTID` | existing Net Planner container, else next free | Container ID |
+| `STORAGE` | `local-lvm` | Disk storage for the container |
 | `VERSION` | `latest` | A release tag such as `v2.0` |
 
-**Update:** run the same command again. It finds the container and updates it; your plan and `config.json` are kept.
+**Update:** run the same command again. It finds the `netplanner` container and updates it; your plan, port and `config.json` are kept.
 
 Inside any existing Debian/Ubuntu machine, LXC or VM the same command installs Net Planner right there (`MODE=here`).
 

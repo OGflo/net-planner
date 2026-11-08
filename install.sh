@@ -7,26 +7,25 @@
 # On Debian / Ubuntu (an LXC, VM or bare metal): installs Net Planner right there.
 # Run it again any time to update. Your plan data and config.json are kept.
 #
-# The server also hosts the website, so this one install gives you both:
-#   http://<ip>:8770  — the planner website, and the address the iPhone / Mac apps link to.
+# The server also hosts the website, so this one install gives you both.
+# It listens on every address (0.0.0.0) on port 8770, so it works on whatever IP
+# the machine has. The installer never sets an IP: on Proxmox the container starts
+# on DHCP, and you set a static IP / VLAN in Proxmox (container → Network) any time.
 #
-# Optional settings (put them before the command, e.g.  VLAN=10 bash -c "$(curl ...)"):
+# Optional settings (put them before the command, e.g.  PORT=8080 bash -c "$(curl ...)"):
+#   PORT=8770          web port
 #   MODE=lxc|here      force creating a container, or installing on this machine
-#   CTID=120           container ID (default: next free)
+#   CTID=120           container ID (default: the existing Net Planner container, or the next free ID)
 #   CT_HOSTNAME=netplanner   container name
-#   BRIDGE=vmbr0       network bridge
-#   VLAN=10            VLAN tag for the container (default: none)
-#   IP=10.0.10.20/24   static address (default: DHCP)
-#   GW=10.0.10.1       gateway, needed with IP
 #   STORAGE=local-lvm  disk storage for the container
 #   TEMPLATE_STORAGE=local   where the Debian template is kept
 #   DISK=4  MEMORY=512  CORES=1
-#   PORT=8770          web port
 #   VERSION=latest     a release tag such as v2.0, or latest
 set -euo pipefail
 
 REPO="OGflo/net-planner"
 VERSION="${VERSION:-latest}"
+if [ -n "${PORT:-}" ]; then PORT_GIVEN="${PORT_GIVEN:-1}"; fi
 PORT="${PORT:-8770}"
 APP_DIR="${NP_APP_DIR:-/opt/netplanner}"   # NP_APP_DIR is for testing only
 SERVICE="netplanner"
@@ -59,8 +58,8 @@ install_here() {
   unzip -q "$tmp/np.zip" -d "$tmp"
   [ -f "$tmp/NetPlanner-Server/netplanner_server.py" ] || die "The download does not look like a Net Planner release."
 
-  local updating=0
-  [ -f "$APP_DIR/netplanner_server.py" ] && updating=1
+  local updating=0 FIRST=1
+  [ -f "$APP_DIR/netplanner_server.py" ] && { updating=1; FIRST=0; }
 
   id -u netplanner >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --shell /usr/sbin/nologin netplanner
   mkdir -p "$APP_DIR/data"
@@ -68,9 +67,18 @@ install_here() {
   rm -rf "$APP_DIR/web"
   cp -R "$tmp/NetPlanner-Server/web" "$APP_DIR/web"
   cp "$tmp/NetPlanner-Server/netplanner_server.py" "$tmp/NetPlanner-Server/README.txt" "$APP_DIR/"
-  if [ ! -f "$APP_DIR/config.json" ]; then
-    sed "s/\"port\": *[0-9]*/\"port\": ${PORT}/" "$tmp/NetPlanner-Server/config.json" > "$APP_DIR/config.json"
-  fi
+  [ -f "$APP_DIR/config.json" ] || cp "$tmp/NetPlanner-Server/config.json" "$APP_DIR/config.json"
+  # listen on every address (0.0.0.0) so the machine's own IP works, whatever it is;
+  # set the port only on a first install or when PORT is given, keep every other setting
+  NP_PORT_SET="${PORT_GIVEN:-$FIRST}" NP_PORT="$PORT" python3 - "$APP_DIR/config.json" <<'PYCFG'
+import json, os, sys
+p = sys.argv[1]
+c = json.load(open(p))
+c["host"] = "0.0.0.0"
+if os.environ.get("NP_PORT_SET") == "1":
+    c["port"] = int(os.environ["NP_PORT"])
+json.dump(c, open(p, "w"), indent=2)
+PYCFG
   chown -R netplanner:netplanner "$APP_DIR"
   chmod 750 "$APP_DIR/data"
 
@@ -108,7 +116,8 @@ EOF
   local ip; ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   echo
   if [ "$updating" = 1 ]; then say "Net Planner updated. Your plan and settings were kept."; else say "Net Planner is installed and running."; fi
-  echo "    Website / app address:  http://${ip:-<this-machine>}:${port}"
+  echo "    Listening on:           port ${port}, every address (0.0.0.0)"
+  echo "    Open it at:             http://<this machine's IP>:${port}   (right now: http://${ip:-?}:${port})"
   echo "    Data:                   ${APP_DIR}/data"
   echo "    Settings:               ${APP_DIR}/config.json  (then: systemctl restart ${SERVICE})"
   echo "    Logs:                   journalctl -u ${SERVICE} -f"
@@ -118,16 +127,21 @@ EOF
 # ---------------------------------------------------------------- create an LXC on a Proxmox host
 install_lxc() {
   command -v pct >/dev/null 2>&1 || die "pct not found — this is not a Proxmox VE host. Use MODE=here to install on this machine."
-  local ctid="${CTID:-$(pvesh get /cluster/nextid)}"
   local name="${CT_HOSTNAME:-netplanner}"
-  local bridge="${BRIDGE:-vmbr0}"
+  local ctid="${CTID:-}"
+  if [ -z "$ctid" ]; then
+    # re-running updates the container made last time (found by its name)
+    ctid="$(pct list 2>/dev/null | awk -v n="$name" 'NR>1 && $NF==n {print $1; exit}')"
+    [ -n "$ctid" ] || ctid="$(pvesh get /cluster/nextid)"
+  fi
   local storage="${STORAGE:-local-lvm}"
   local tstore="${TEMPLATE_STORAGE:-local}"
 
   if pct status "$ctid" >/dev/null 2>&1; then
     if pct exec "$ctid" -- test -f "$APP_DIR/netplanner_server.py" 2>/dev/null; then
       say "Container $ctid already runs Net Planner — updating it"
-      pct exec "$ctid" -- bash -c "curl -fsSL '$SELF_URL' | MODE=here VERSION='$VERSION' PORT='$PORT' bash"
+      pct status "$ctid" | grep -q running || pct start "$ctid"
+      pct exec "$ctid" -- bash -c "curl -fsSL '$SELF_URL' | MODE=here VERSION='$VERSION' PORT='$PORT' PORT_GIVEN='${PORT_GIVEN:-0}' bash"
       return
     fi
     die "Container ID $ctid is already used by something else. Pick another with CTID=..."
@@ -144,21 +158,16 @@ install_lxc() {
     pveam download "$tstore" "$tmpl" >/dev/null
   fi
 
-  local net="name=eth0,bridge=${bridge}"
-  if [ -n "${IP:-}" ]; then
-    [ -n "${GW:-}" ] || die "Set GW=<gateway> together with IP=<address/prefix>."
-    net="${net},ip=${IP},gw=${GW}"
-  else
-    net="${net},ip=dhcp"
-  fi
-  [ -n "${VLAN:-}" ] && net="${net},tag=${VLAN}"
+  # no address is set here: the container starts on DHCP on vmbr0,
+  # and you change IP / VLAN / bridge in Proxmox (container → Network) whenever you like
+  local net="name=eth0,bridge=vmbr0,ip=dhcp"
 
-  say "Creating container $ctid ($name) on $storage, network $net"
+  say "Creating container $ctid ($name) on $storage (network: DHCP on vmbr0 — change it in Proxmox any time)"
   pct create "$ctid" "${tstore}:vztmpl/${tmpl}" \
     --hostname "$name" --cores "${CORES:-1}" --memory "${MEMORY:-512}" --swap 256 \
     --rootfs "${storage}:${DISK:-4}" --net0 "$net" \
     --unprivileged 1 --features nesting=1 --onboot 1 \
-    --description "Net Planner — http://<ip>:${PORT}  (https://github.com/${REPO})" >/dev/null
+    --description "Net Planner — website and server on port ${PORT}. https://github.com/${REPO}" >/dev/null
   pct start "$ctid"
 
   say "Waiting for the container to get on the network"
@@ -167,19 +176,19 @@ install_lxc() {
     if pct exec "$ctid" -- bash -c "getent hosts deb.debian.org >/dev/null && ip route | grep -q default" 2>/dev/null; then ok=1; break; fi
     sleep 2
   done
-  [ "$ok" = 1 ] || die "Container $ctid has no internet access. Check the bridge/VLAN (BRIDGE=, VLAN=) or DHCP, then run: pct exec $ctid -- bash -c \"\$(curl -fsSL $SELF_URL)\""
+  [ "$ok" = 1 ] || die "Container $ctid has no internet access yet. Fix its network in Proxmox (container $ctid → Network), then run this same command again."
 
   say "Installing Net Planner inside container $ctid"
-  pct exec "$ctid" -- bash -c "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null && curl -fsSL '$SELF_URL' | MODE=here VERSION='$VERSION' PORT='$PORT' bash"
+  pct exec "$ctid" -- bash -c "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null && curl -fsSL '$SELF_URL' | MODE=here VERSION='$VERSION' PORT='$PORT' PORT_GIVEN=1 bash"
 
   local ip; ip="$(pct exec "$ctid" -- hostname -I 2>/dev/null | awk '{print $1}')"
-  pct set "$ctid" --description "Net Planner — http://${ip}:${PORT}  (https://github.com/${REPO})" >/dev/null 2>&1 || true
   echo
-  say "Done. Net Planner runs in container $ctid ($name)."
-  echo "    Open:            http://${ip}:${PORT}"
-  echo "    In the iPhone / Mac app: More → Link with your Mac / website → http://${ip}:${PORT}"
+  say "Done. Net Planner runs in container $ctid ($name), port ${PORT}, on every address."
+  echo "    Right now it got http://${ip:-?}:${PORT} from DHCP."
+  echo "    To set its address: Proxmox → container $ctid → Network → edit net0 (Static IP, gateway, VLAN tag)."
+  echo "      Net Planner follows the new address by itself — no reinstall."
+  echo "    In the iPhone / Mac app: More → Link with your Mac / website → http://<its IP>:${PORT}"
   echo "    Update later:    run the same command again on this Proxmox host"
-  echo "    Tip: give it a static IP in pfSense (DHCP reservation) so the apps always find it."
 }
 
 MODE="${MODE:-}"
